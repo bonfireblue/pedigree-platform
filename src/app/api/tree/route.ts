@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireMe } from "@/lib/authz";
+import { rateLimit, clientKey } from "@/lib/rateLimit";
 
 type NodeRow = {
   id: string;
@@ -8,124 +9,182 @@ type NodeRow = {
   isPrivate: boolean;
   createdById: string;
   createdAt: Date;
+  bio: string | null;
+  location: string | null;
+  birthDate: Date | null;
+  deathDate: Date | null;
+  photoUrl: string | null;
 };
 
-type ParentChildEdge = { parentId: string; childId: string };
-type SpouseEdge = { aId: string; bId: string };
+type ParentChildEdge = {
+  parentId: string;
+  childId: string;
+};
 
-function intParam(url: URL, key: string, def: number) {
-  const v = url.searchParams.get(key);
-  const n = v ? Number(v) : def;
-  if (!Number.isFinite(n)) return def;
-  return Math.max(0, Math.min(5, Math.floor(n))); // hard cap 0..5
+type SpouseEdge = {
+  aId: string;
+  bId: string;
+};
+
+function canView(meId: string, p: { isPrivate: boolean; createdById: string }) {
+  if (!p.isPrivate) return true;
+  return p.createdById === meId;
 }
 
 export async function GET(req: Request) {
+  const lim = rateLimit({ key: `tree:${clientKey(req)}`, limit: 120, windowMs: 60_000 });
+  if (!lim.ok) return NextResponse.json({ error: "RATE_LIMIT" }, { status: 429 });
+
   const me = await requireMe();
   if (!me) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
-  const url = new URL(req.url);
-  const centerId = (url.searchParams.get("centerId") ?? "").trim();
-  const up = intParam(url, "up", 2);
-  const down = intParam(url, "down", 2);
+  const { searchParams } = new URL(req.url);
 
-  if (!centerId) return NextResponse.json({ error: "VALIDATION_ERROR", field: "centerId" }, { status: 400 });
+  const centerId = searchParams.get("centerId") || "";
+  const depth = Math.max(1, Math.min(4, Number(searchParams.get("depth") || "2")));
+  const limit = Math.max(50, Math.min(1000, Number(searchParams.get("limit") || "300")));
 
-  // Privacy filter:
-  // - Admin can see all
-  // - Non-admin can see public OR their own
-  const visibilitySQL = me.isAdmin
-    ? prisma.$queryRaw`SELECT 1` // placeholder (unused)
-    : prisma.$queryRaw`SELECT 1`; // placeholder (unused)
+  if (!centerId) return NextResponse.json({ error: "MISSING_CENTER_ID" }, { status: 400 });
 
-  // 1) Get ancestor IDs (up)
-  const ancestors = await prisma.$queryRaw<{ id: string }[]>`
-    WITH RECURSIVE anc(id, depth) AS (
-      SELECT ${centerId}::uuid AS id, 0 AS depth
-      UNION ALL
-      SELECT pc."parentId"::uuid AS id, anc.depth + 1
-      FROM "ParentChild" pc
-      JOIN anc ON pc."childId"::uuid = anc.id
-      WHERE anc.depth < ${up}
-    )
-    SELECT DISTINCT id::text AS id FROM anc;
-  `;
+  // 1) Load center
+  const center = (await prisma.person.findUnique({ where: { id: centerId } })) as unknown as NodeRow | null;
+  if (!center) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  if (!canView(me.id, center)) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
 
-  // 2) Get descendant IDs (down)
-  const descendants = await prisma.$queryRaw<{ id: string }[]>`
-    WITH RECURSIVE des(id, depth) AS (
-      SELECT ${centerId}::uuid AS id, 0 AS depth
-      UNION ALL
-      SELECT pc."childId"::uuid AS id, des.depth + 1
-      FROM "ParentChild" pc
-      JOIN des ON pc."parentId"::uuid = des.id
-      WHERE des.depth < ${down}
-    )
-    SELECT DISTINCT id::text AS id FROM des;
-  `;
+  // 2) BFS on ids using parent-child edges (both directions)
+  const visited = new Set<string>();
+  const frontier: string[] = [centerId];
+  visited.add(centerId);
 
-  // Merge IDs (include center)
-  const idSet = new Set<string>();
-  for (const r of ancestors) idSet.add(r.id);
-  for (const r of descendants) idSet.add(r.id);
-  idSet.add(centerId);
+  for (let d = 0; d < depth; d++) {
+    if (visited.size >= limit) break;
 
-  // Safety cap to avoid exploding responses in MVP
-  const MAX_NODES = 500;
-  const ids = Array.from(idSet).slice(0, MAX_NODES);
+    const batch = frontier.splice(0, frontier.length);
+    if (batch.length === 0) break;
 
-  // 3) Load nodes with privacy enforcement
-  const nodes = await prisma.person.findMany({
-    where: me.isAdmin
-      ? { id: { in: ids } }
-      : {
-          id: { in: ids },
-          OR: [{ createdById: me.id }, { isPrivate: false }],
-        },
+    // parents of batch
+    const parents = await prisma.parentChild.findMany({
+      where: { childId: { in: batch } },
+      select: { parentId: true }
+    });
+
+    // children of batch
+    const children = await prisma.parentChild.findMany({
+      where: { parentId: { in: batch } },
+      select: { childId: true }
+    });
+
+    const nextIds: string[] = [];
+
+    for (const e of parents as unknown as { parentId: string }[]) {
+      if (visited.size >= limit) break;
+      if (!visited.has(e.parentId)) {
+        visited.add(e.parentId);
+        nextIds.push(e.parentId);
+      }
+    }
+
+    for (const e of children as unknown as { childId: string }[]) {
+      if (visited.size >= limit) break;
+      if (!visited.has(e.childId)) {
+        visited.add(e.childId);
+        nextIds.push(e.childId);
+      }
+    }
+
+    // spouses of batch (both sides)
+    const spousesA = await prisma.spouse.findMany({
+      where: { aId: { in: batch } },
+      select: { bId: true }
+    });
+    const spousesB = await prisma.spouse.findMany({
+      where: { bId: { in: batch } },
+      select: { aId: true }
+    });
+
+    for (const s of spousesA as unknown as { bId: string }[]) {
+      if (visited.size >= limit) break;
+      if (!visited.has(s.bId)) {
+        visited.add(s.bId);
+        nextIds.push(s.bId);
+      }
+    }
+
+    for (const s of spousesB as unknown as { aId: string }[]) {
+      if (visited.size >= limit) break;
+      if (!visited.has(s.aId)) {
+        visited.add(s.aId);
+        nextIds.push(s.aId);
+      }
+    }
+
+    frontier.push(...nextIds);
+  }
+
+  // 3) Load people for visited ids and apply privacy filter
+  const nodesAll = (await prisma.person.findMany({
+    where: { id: { in: Array.from(visited) } },
     select: {
       id: true,
       fullName: true,
       isPrivate: true,
       createdById: true,
       createdAt: true,
-    },
-  });
+      bio: true,
+      location: true,
+      birthDate: true,
+      deathDate: true,
+      photoUrl: true
+    }
+  })) as unknown as NodeRow[];
 
-  const visibleIds = new Set(nodes.map((n) => n.id));
+  const nodes = nodesAll.filter((n: NodeRow) => canView(me.id, n));
+
+  const visibleIds = new Set<string>(nodes.map((n: NodeRow) => n.id));
 
   // 4) Load edges among visible nodes
-  const parentChildEdges = await prisma.parentChild.findMany({
-    where: {
-      parentId: { in: Array.from(visibleIds) },
-      childId: { in: Array.from(visibleIds) },
-    },
-    select: { parentId: true, childId: true },
-    take: 2000,
-  });
-
-  const spouseEdges = await prisma.spouse.findMany({
+  const parentChildEdges = (await prisma.parentChild.findMany({
     where: {
       OR: [
-        { aId: { in: Array.from(visibleIds) }, bId: { in: Array.from(visibleIds) } },
-        { bId: { in: Array.from(visibleIds) }, aId: { in: Array.from(visibleIds) } },
-      ],
+        { parentId: { in: Array.from(visibleIds) } },
+        { childId: { in: Array.from(visibleIds) } }
+      ]
     },
-    select: { aId: true, bId: true },
-    take: 2000,
-  });
+    select: { parentId: true, childId: true }
+  })) as unknown as ParentChildEdge[];
+
+  const spouseEdges = (await prisma.spouse.findMany({
+    where: {
+      OR: [
+        { aId: { in: Array.from(visibleIds) } },
+        { bId: { in: Array.from(visibleIds) } }
+      ]
+    },
+    select: { aId: true, bId: true }
+  })) as unknown as SpouseEdge[];
+
+  const pc = parentChildEdges.filter(
+    (e: ParentChildEdge) => visibleIds.has(e.parentId) && visibleIds.has(e.childId)
+  );
+  const sp = spouseEdges.filter((e: SpouseEdge) => visibleIds.has(e.aId) && visibleIds.has(e.bId));
 
   return NextResponse.json({
     centerId,
-    up,
-    down,
-    nodes,
+    depth,
+    nodes: nodes.map((n: NodeRow) => ({
+      id: n.id,
+      fullName: n.fullName,
+      isPrivate: n.isPrivate,
+      createdAt: n.createdAt.toISOString(),
+      bio: n.bio,
+      location: n.location,
+      birthDate: n.birthDate ? n.birthDate.toISOString() : null,
+      deathDate: n.deathDate ? n.deathDate.toISOString() : null,
+      photoUrl: n.photoUrl
+    })),
     edges: {
-      parentChild: parentChildEdges as ParentChildEdge[],
-      spouses: spouseEdges as SpouseEdge[],
-    },
-    meta: {
-      nodeCount: nodes.length,
-      truncated: ids.length >= MAX_NODES,
-    },
+      parentChild: pc,
+      spouse: sp
+    }
   });
 }
