@@ -1,18 +1,25 @@
-export async function readJson(req: Request, maxBytes = 50_000) {
-  const len = req.headers.get("content-length");
-  if (len && Number(len) > maxBytes) {
-    return { ok: false as const, error: "PAYLOAD_TOO_LARGE" as const };
+export type ReadJsonResult =
+  | { ok: true; json: any }
+  | { ok: false; error: string };
+
+export async function readJson(req: Request, maxBytes = 100_000): Promise<ReadJsonResult> {
+  const lenHeader = req.headers.get("content-length");
+  if (lenHeader) {
+    const n = Number(lenHeader);
+    if (Number.isFinite(n) && n > maxBytes) {
+      return { ok: false, error: "PAYLOAD_TOO_LARGE" };
+    }
   }
 
-  const text = await req.text();
-  if (text.length > maxBytes) {
-    return { ok: false as const, error: "PAYLOAD_TOO_LARGE" as const };
-  }
+  // Read raw body
+  const buf = Buffer.from(await req.arrayBuffer());
+  if (buf.length > maxBytes) return { ok: false, error: "PAYLOAD_TOO_LARGE" };
 
   try {
-    const json = JSON.parse(text);
-    return { ok: true as const, json };
+    const text = buf.toString("utf8");
+    const json = text.length ? JSON.parse(text) : {};
+    return { ok: true, json };
   } catch {
-    return { ok: false as const, error: "INVALID_JSON" as const };
+    return { ok: false, error: "INVALID_JSON" };
   }
 }

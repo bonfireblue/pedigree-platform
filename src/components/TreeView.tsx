@@ -3,88 +3,93 @@
 type Person = {
   id: string;
   fullName: string;
+  createdAt: string;
+  isPrivate: boolean;
 };
 
 type PersonGraph = {
-  person: Person;
+  person: Person & {
+    bio?: string | null;
+    location?: string | null;
+    birthDate?: string | null;
+    deathDate?: string | null;
+    photoUrl?: string | null;
+  };
   parents: Person[];
   children: Person[];
   spouses: Person[];
 };
 
-function Node({
-  person,
-  onClick,
-}: {
-  person: Person;
-  onClick?: (id: string) => void;
-}) {
-  return (
-    <button
-      onClick={() => onClick?.(person.id)}
-      style={{
-        border: "1px solid #ccc",
-        padding: "10px 12px",
-        borderRadius: 8,
-        cursor: onClick ? "pointer" : "default",
-        background: "white",
-        minWidth: 180,
-        textAlign: "left",
-      }}
-    >
-      <div style={{ fontWeight: 600 }}>{person.fullName}</div>
-      <div style={{ fontSize: 12, opacity: 0.7 }}>{person.id.slice(0, 8)}…</div>
-    </button>
-  );
-}
-
 export function TreeView({
   graph,
-  onSelectPerson,
+  onSelectPerson
 }: {
   graph: PersonGraph;
   onSelectPerson: (id: string) => void;
 }) {
   return (
-    <div style={{ display: "grid", gap: 18 }}>
-      {/* Parents */}
-      <div>
-        <div style={{ fontWeight: 700, marginBottom: 8 }}>Parents</div>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          {graph.parents.length ? (
-            graph.parents.map((p) => <Node key={p.id} person={p} onClick={onSelectPerson} />)
-          ) : (
-            <div style={{ opacity: 0.7 }}>(none)</div>
-          )}
-        </div>
+    <div style={{ border: "1px solid #ddd", padding: 12, borderRadius: 8 }}>
+      <h3 style={{ marginTop: 0 }}>Selected</h3>
+      <button
+        onClick={() => onSelectPerson(graph.person.id)}
+        style={{ cursor: "pointer", fontWeight: 700 }}
+      >
+        {graph.person.fullName}
+      </button>
+      <div style={{ color: "#666", fontSize: 12 }}>{graph.person.id.slice(0, 8)}…</div>
+
+      <div style={{ marginTop: 16 }}>
+        <h4>Parents</h4>
+        {graph.parents.length === 0 ? (
+          <div style={{ color: "#666" }}>(none)</div>
+        ) : (
+          <ul>
+            {graph.parents.map((p) => (
+              <li key={p.id}>
+                <button onClick={() => onSelectPerson(p.id)} style={{ cursor: "pointer" }}>
+                  {p.fullName}
+                </button>{" "}
+                <span style={{ color: "#666", fontSize: 12 }}>{p.id.slice(0, 8)}…</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
-      {/* Center: Person + Spouses */}
-      <div>
-        <div style={{ fontWeight: 700, marginBottom: 8 }}>Selected</div>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-          <Node person={graph.person} />
-          {graph.spouses.length ? (
-            <>
-              <div style={{ opacity: 0.7 }}>Spouses</div>
-              {graph.spouses.map((s) => (
-                <Node key={s.id} person={s} onClick={onSelectPerson} />
-              ))}
-            </>
-          ) : null}
-        </div>
+      <div style={{ marginTop: 16 }}>
+        <h4>Spouses</h4>
+        {graph.spouses.length === 0 ? (
+          <div style={{ color: "#666" }}>(none)</div>
+        ) : (
+          <ul>
+            {graph.spouses.map((p) => (
+              <li key={p.id}>
+                <button onClick={() => onSelectPerson(p.id)} style={{ cursor: "pointer" }}>
+                  {p.fullName}
+                </button>{" "}
+                <span style={{ color: "#666", fontSize: 12 }}>{p.id.slice(0, 8)}…</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
-      {/* Children */}
-      <div>
-        <div style={{ fontWeight: 700, marginBottom: 8 }}>Children</div>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          {graph.children.length ? (
-            graph.children.map((c) => <Node key={c.id} person={c} onClick={onSelectPerson} />)
-          ) : (
-            <div style={{ opacity: 0.7 }}>(none)</div>
-          )}
-        </div>
+      <div style={{ marginTop: 16 }}>
+        <h4>Children</h4>
+        {graph.children.length === 0 ? (
+          <div style={{ color: "#666" }}>(none)</div>
+        ) : (
+          <ul>
+            {graph.children.map((p) => (
+              <li key={p.id}>
+                <button onClick={() => onSelectPerson(p.id)} style={{ cursor: "pointer" }}>
+                  {p.fullName}
+                </button>{" "}
+                <span style={{ color: "#666", fontSize: 12 }}>{p.id.slice(0, 8)}…</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
