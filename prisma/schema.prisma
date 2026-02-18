@@ -1,0 +1,89 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  role   UserRole @default(USER)
+  people Person[]
+}
+
+model Person {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  fullName  String
+  bio       String? // optional
+  birthDate DateTime? // optional
+  deathDate DateTime? // optional
+  location  String? // optional
+  photoUrl  String? // optional
+
+  parents  ParentChild[] @relation("ChildParents")
+  children ParentChild[] @relation("ParentChildren")
+
+  spousesA Spouse[] @relation("SpouseA")
+  spousesB Spouse[] @relation("SpouseB")
+
+  // Permissions/visibility
+  isPrivate Boolean @default(false)
+
+  // Ownership / auditing
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([fullName])
+  @@index([createdById])
+  @@index([isPrivate])
+}
+
+model ParentChild {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  parentId String
+  childId  String
+
+  parent Person @relation("ParentChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  child  Person @relation("ChildParents", fields: [childId], references: [id], onDelete: Cascade)
+
+  @@unique([parentId, childId])
+  @@index([parentId])
+  @@index([childId])
+}
+
+model Spouse {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  aId String
+  bId String
+
+  a Person @relation("SpouseA", fields: [aId], references: [id], onDelete: Cascade)
+  b Person @relation("SpouseB", fields: [bId], references: [id], onDelete: Cascade)
+
+  @@unique([aId, bId])
+  @@index([aId])
+  @@index([bId])
+}
