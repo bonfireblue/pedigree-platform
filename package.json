@@ -2,12 +2,18 @@
   "name": "family-tree",
   "version": "0.1.0",
   "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
+ "scripts": {
+  "dev": "next dev",
+  "build": "next build",
+  "vercel-build": "prisma generate && prisma migrate deploy && next build",
+  "start": "next start",
+  "lint": "next lint",
+  "prisma:generate": "prisma generate",
+  "prisma:migrate:deploy": "prisma migrate deploy",
+  "prisma:migrate:dev": "prisma migrate dev",
+  "seed": "tsx prisma/seed.ts"
+}
+
   "dependencies": {
     "@prisma/client": "^6.19.2",
     "argon2": "^0.44.0",
