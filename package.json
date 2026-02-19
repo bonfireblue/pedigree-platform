@@ -2,7 +2,7 @@
   "name": "family-tree",
   "version": "0.1.0",
   "private": true,
- "scripts": {
+"scripts": {
   "dev": "next dev",
   "build": "next build",
   "vercel-build": "prisma generate && prisma migrate deploy && next build",
@@ -12,6 +12,8 @@
   "prisma:migrate:deploy": "prisma migrate deploy",
   "prisma:migrate:dev": "prisma migrate dev",
   "seed": "tsx prisma/seed.ts"
+}
+
 }
 
   "dependencies": {
