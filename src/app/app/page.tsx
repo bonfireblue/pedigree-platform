@@ -176,7 +176,9 @@ export default function AppPage() {
     setError(null);
     setGraph(null);
 
-    const res = await fetch(`/api/tree?centerId=${encodeURIComponent(id)}&up=${up}&down=${down}`);
+  const depth = Math.max(up, down);
+  const res = await fetch(`/api/tree?centerId=${encodeURIComponent(id)}&depth=${depth}`);
+
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       setError(data?.error ?? `Failed to load tree: ${res.status}`);
