@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const name = (body?.name ?? "").toString().trim();
+
     const email = (body?.email ?? "").toString().trim().toLowerCase();
     const password = (body?.password ?? "").toString();
 
@@ -23,10 +23,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const existing = await prisma.user.findUnique({
-      where: { email }
-    });
-
+    const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
       return NextResponse.json(
         { error: "Email is already in use." },
@@ -38,18 +35,14 @@ export async function POST(req: Request) {
 
     await prisma.user.create({
       data: {
-        name: name || null,
         email,
         passwordHash,
-        role: "USER"
-      }
+        role: "USER",
+      },
     });
 
     return NextResponse.json({ ok: true }, { status: 201 });
-  } catch (e) {
-    return NextResponse.json(
-      { error: "Registration failed." },
-      { status: 500 }
-    );
+  } catch {
+    return NextResponse.json({ error: "Registration failed." }, { status: 500 });
   }
 }
