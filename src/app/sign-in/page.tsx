@@ -39,4 +39,8 @@ export default function SignInPage() {
       </form>
     </main>
   );
+
+  <a href="/sign-up" style={{ textAlign: "center", marginTop: 10 }}>
+  Don&apos;t have an account? Sign up
+</a>
 }
