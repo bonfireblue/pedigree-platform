@@ -5,14 +5,10 @@ import { prisma } from "@/lib/db";
 import { rateLimit, clientKey } from "@/lib/rateLimit";
 import { readJson } from "@/lib/body";
 
-//
-// GET /api/people
-// Returns list of visible people for current user
-//
-export async function GET() {
+async function getMeAndGraph(req?: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    return { ok: false as const, res: NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 }) };
   }
 
   const me = await prisma.user.findUnique({
@@ -20,11 +16,35 @@ export async function GET() {
   });
 
   if (!me) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    return { ok: false as const, res: NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 }) };
   }
+
+  const membership = await prisma.membership.findFirst({
+    where: { userId: me.id },
+    orderBy: { createdAt: "asc" },
+    select: { familyGraphId: true, role: true },
+  });
+
+  if (!membership) {
+    return { ok: false as const, res: NextResponse.json({ error: "NO_MEMBERSHIP" }, { status: 403 }) };
+  }
+
+  return { ok: true as const, me, membership };
+}
+
+//
+// GET /api/people
+// Returns list of visible people in the current user's family graph
+//
+export async function GET(req: Request) {
+  const ctx = await getMeAndGraph(req);
+  if (!ctx.ok) return ctx.res;
+
+  const { me, membership } = ctx;
 
   const people = await prisma.person.findMany({
     where: {
+      familyGraphId: membership.familyGraphId,
       OR: [
         { isPrivate: false },
         { createdById: me.id },
@@ -45,21 +65,13 @@ export async function GET() {
 
 //
 // POST /api/people
-// Create a new person
+// Create a new person inside the current user's family graph
 //
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  const ctx = await getMeAndGraph(req);
+  if (!ctx.ok) return ctx.res;
 
-  const me = await prisma.user.findUnique({
-    where: { email: session.user.email },
-  });
-
-  if (!me) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  const { me, membership } = ctx;
 
   // Rate limit: 30 creates per minute per IP
   const rl = rateLimit({
@@ -89,6 +101,7 @@ export async function POST(req: Request) {
       fullName: body.fullName.trim(),
       isPrivate: Boolean(body.isPrivate),
       createdById: me.id,
+      familyGraphId: membership.familyGraphId,
     },
     select: {
       id: true,
