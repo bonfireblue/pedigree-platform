@@ -1,11 +1,11 @@
 import { prisma } from "../src/lib/db";
 
 async function main() {
-  // Use the earliest-created user as the founder for the default graph
+  // Earliest-created user becomes founder for the default graph
   const founder = await prisma.user.findFirst({ orderBy: { createdAt: "asc" } });
   if (!founder) throw new Error("NO_USERS_FOUND");
 
-  // If a graph already exists, reuse it; otherwise create one.
+  // Create or reuse a default graph
   let graph = await prisma.familyGraph.findFirst({ orderBy: { createdAt: "asc" } });
 
   if (!graph) {
@@ -32,23 +32,21 @@ async function main() {
     });
   }
 
-  // Backfill any NULL familyGraphId values on Person
-  const updated = await prisma.person.updateMany({
-    where: { familyGraphId: null },
-    data: { familyGraphId: graph.id },
-  });
+  // IMPORTANT: use raw SQL so we can update rows where familyGraphId IS NULL
+  const updatedCount = await prisma.$executeRawUnsafe(
+    `UPDATE "Person" SET "familyGraphId" = $1 WHERE "familyGraphId" IS NULL`,
+    graph.id
+  );
 
   console.log({
     graphId: graph.id,
     founderId: founder.id,
-    peopleUpdated: updated.count,
+    peopleUpdated: Number(updatedCount),
   });
 }
 
 main()
-  .then(async () => {
-    await prisma.$disconnect();
-  })
+  .then(async () => prisma.$disconnect())
   .catch(async (e) => {
     console.error(e);
     await prisma.$disconnect();
