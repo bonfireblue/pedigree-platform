@@ -14,6 +14,7 @@ type NodeRow = {
   birthDate: Date | null;
   deathDate: Date | null;
   photoUrl: string | null;
+  claimedByUserId: string | null;
 };
 
 type ParentChildEdge = {
@@ -46,12 +47,28 @@ export async function GET(req: Request) {
 
   if (!centerId) return NextResponse.json({ error: "MISSING_CENTER_ID" }, { status: 400 });
 
-  // 1) Load center
-  const center = (await prisma.person.findUnique({ where: { id: centerId } })) as unknown as NodeRow | null;
+  // 1) Load center (include claimedByUserId)
+  const center = (await prisma.person.findUnique({
+    where: { id: centerId },
+    select: {
+      id: true,
+      fullName: true,
+      isPrivate: true,
+      createdById: true,
+      createdAt: true,
+      bio: true,
+      location: true,
+      birthDate: true,
+      deathDate: true,
+      photoUrl: true,
+      claimedByUserId: true
+    }
+  })) as unknown as NodeRow | null;
+
   if (!center) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   if (!canView(me.id, center)) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
 
-  // 2) BFS on ids using parent-child edges (both directions)
+  // 2) BFS on ids using parent-child edges (both directions) + spouses
   const visited = new Set<string>();
   const frontier: string[] = [centerId];
   visited.add(centerId);
@@ -121,7 +138,7 @@ export async function GET(req: Request) {
     frontier.push(...nextIds);
   }
 
-  // 3) Load people for visited ids and apply privacy filter
+  // 3) Load people for visited ids and apply privacy filter (include claimedByUserId)
   const nodesAll = (await prisma.person.findMany({
     where: { id: { in: Array.from(visited) } },
     select: {
@@ -134,7 +151,8 @@ export async function GET(req: Request) {
       location: true,
       birthDate: true,
       deathDate: true,
-      photoUrl: true
+      photoUrl: true,
+      claimedByUserId: true
     }
   })) as unknown as NodeRow[];
 
@@ -145,20 +163,14 @@ export async function GET(req: Request) {
   // 4) Load edges among visible nodes
   const parentChildEdges = (await prisma.parentChild.findMany({
     where: {
-      OR: [
-        { parentId: { in: Array.from(visibleIds) } },
-        { childId: { in: Array.from(visibleIds) } }
-      ]
+      OR: [{ parentId: { in: Array.from(visibleIds) } }, { childId: { in: Array.from(visibleIds) } }]
     },
     select: { parentId: true, childId: true }
   })) as unknown as ParentChildEdge[];
 
   const spouseEdges = (await prisma.spouse.findMany({
     where: {
-      OR: [
-        { aId: { in: Array.from(visibleIds) } },
-        { bId: { in: Array.from(visibleIds) } }
-      ]
+      OR: [{ aId: { in: Array.from(visibleIds) } }, { bId: { in: Array.from(visibleIds) } }]
     },
     select: { aId: true, bId: true }
   })) as unknown as SpouseEdge[];
@@ -180,7 +192,8 @@ export async function GET(req: Request) {
       location: n.location,
       birthDate: n.birthDate ? n.birthDate.toISOString() : null,
       deathDate: n.deathDate ? n.deathDate.toISOString() : null,
-      photoUrl: n.photoUrl
+      photoUrl: n.photoUrl,
+      claimedByUserId: n.claimedByUserId
     })),
     edges: {
       parentChild: pc,
