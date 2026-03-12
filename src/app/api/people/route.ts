@@ -1,116 +1,190 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { requireMe } from "@/lib/authz";
 import { rateLimit, clientKey } from "@/lib/rateLimit";
 import { readJson } from "@/lib/body";
 
-async function getMeAndGraph(req?: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
-    return { ok: false as const, res: NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 }) };
-  }
+function normalizeFullName(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.length > 120) return null;
+  return trimmed;
+}
 
-  const me = await prisma.user.findUnique({
-    where: { email: session.user.email },
-  });
-
-  if (!me) {
-    return { ok: false as const, res: NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 }) };
-  }
-
-  const membership = await prisma.membership.findFirst({
-    where: { userId: me.id },
+async function getOrCreatePrimaryMembership(userId: string) {
+  const existing = await prisma.membership.findFirst({
+    where: { userId },
     orderBy: { createdAt: "asc" },
-    select: { familyGraphId: true, role: true },
+    select: {
+      familyGraphId: true,
+      role: true,
+    },
   });
 
-  if (!membership) {
-    return { ok: false as const, res: NextResponse.json({ error: "NO_MEMBERSHIP" }, { status: 403 }) };
-  }
+  if (existing) return existing;
 
-  return { ok: true as const, me, membership };
+  const created = await prisma.$transaction(async (tx) => {
+    const graph = await tx.familyGraph.create({
+      data: {
+        name: "My Family Graph",
+        createdById: userId,
+      },
+      select: { id: true },
+    });
+
+    const membership = await tx.membership.create({
+      data: {
+        userId,
+        familyGraphId: graph.id,
+        role: "FOUNDER",
+      },
+      select: {
+        familyGraphId: true,
+        role: true,
+      },
+    });
+
+    return membership;
+  });
+
+  return created;
 }
 
-//
-// GET /api/people
-// Returns list of visible people in the current user's family graph
-//
 export async function GET(req: Request) {
-  const ctx = await getMeAndGraph(req);
-  if (!ctx.ok) return ctx.res;
+  try {
+    const lim = rateLimit({
+      key: `people_get:${clientKey(req)}`,
+      limit: 120,
+      windowMs: 60_000,
+    });
 
-  const { me, membership } = ctx;
+    if (!lim.ok) {
+      return NextResponse.json({ error: "RATE_LIMIT" }, { status: 429 });
+    }
 
-  const people = await prisma.person.findMany({
-    where: {
+    const me = await requireMe();
+    if (!me) {
+      return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    }
+
+    const membership = await prisma.membership.findFirst({
+      where: { userId: me.id },
+      orderBy: { createdAt: "asc" },
+      select: {
+        familyGraphId: true,
+        role: true,
+      },
+    });
+
+    // Important UX change:
+    // A brand new user should see an empty list, not a hard error.
+    if (!membership) {
+      return NextResponse.json({
+        people: [],
+        familyGraphId: null,
+        role: null,
+      });
+    }
+
+    const people = await prisma.person.findMany({
+      where: {
+        familyGraphId: membership.familyGraphId,
+        deletedAt: null,
+      },
+      orderBy: [{ createdAt: "asc" }],
+      select: {
+        id: true,
+        fullName: true,
+        createdAt: true,
+        isPrivate: true,
+        claimedByUserId: true,
+      },
+    });
+
+    return NextResponse.json({
+      people: people.map((p) => ({
+        id: p.id,
+        fullName: p.fullName,
+        createdAt: p.createdAt.toISOString(),
+        isPrivate: p.isPrivate,
+        claimedByUserId: p.claimedByUserId,
+      })),
       familyGraphId: membership.familyGraphId,
-      deletedAt: null,
-      OR: [
-        { isPrivate: false },
-        { createdById: me.id },
-        ...(me.role === "ADMIN" ? [{}] : []),
-      ],
-    },
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      fullName: true,
-      createdAt: true,
-      isPrivate: true,
-    },
-  });
-
-  return NextResponse.json({ people });
+      role: membership.role,
+    });
+  } catch (error) {
+    console.error("GET /api/people failed", error);
+    return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
+  }
 }
 
-//
-// POST /api/people
-// Create a new person inside the current user's family graph
-//
 export async function POST(req: Request) {
-  const ctx = await getMeAndGraph(req);
-  if (!ctx.ok) return ctx.res;
+  try {
+    const lim = rateLimit({
+      key: `people_post:${clientKey(req)}`,
+      limit: 60,
+      windowMs: 60_000,
+    });
 
-  const { me, membership } = ctx;
+    if (!lim.ok) {
+      return NextResponse.json({ error: "RATE_LIMIT" }, { status: 429 });
+    }
 
-  // Rate limit: 30 creates per minute per IP
-  const rl = rateLimit({
-    key: `people:post:${clientKey(req)}`,
-    limit: 30,
-    windowMs: 60_000,
-  });
+    const me = await requireMe();
+    if (!me) {
+      return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    }
 
-  if (!rl.ok) {
-    return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
+    const parsed = await readJson(req, 50_000);
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+
+    const fullName = normalizeFullName(parsed.json?.fullName);
+    const isPrivate = typeof parsed.json?.isPrivate === "boolean" ? parsed.json.isPrivate : false;
+
+    if (!fullName) {
+      return NextResponse.json({ error: "INVALID_FULL_NAME" }, { status: 400 });
+    }
+
+    // Important UX change:
+    // If the user has no graph yet, bootstrap one automatically.
+    const membership = await getOrCreatePrimaryMembership(me.id);
+
+    const person = await prisma.person.create({
+      data: {
+        fullName,
+        isPrivate,
+        createdById: me.id,
+        familyGraphId: membership.familyGraphId,
+      },
+      select: {
+        id: true,
+        fullName: true,
+        createdAt: true,
+        isPrivate: true,
+        claimedByUserId: true,
+        familyGraphId: true,
+      },
+    });
+
+    return NextResponse.json(
+      {
+        person: {
+          id: person.id,
+          fullName: person.fullName,
+          createdAt: person.createdAt.toISOString(),
+          isPrivate: person.isPrivate,
+          claimedByUserId: person.claimedByUserId,
+          familyGraphId: person.familyGraphId,
+        },
+        bootstrappedGraph: membership.role === "FOUNDER",
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error("POST /api/people failed", error);
+    return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
   }
-
-  // Body size guard
-  const parsed = await readJson(req);
-  if (!parsed.ok) {
-    return NextResponse.json({ error: parsed.error }, { status: 400 });
-  }
-
-  const body = parsed.json;
-
-  if (!body?.fullName || typeof body.fullName !== "string") {
-    return NextResponse.json({ error: "INVALID_FULL_NAME" }, { status: 400 });
-  }
-
-  const person = await prisma.person.create({
-    data: {
-      fullName: body.fullName.trim(),
-      isPrivate: Boolean(body.isPrivate),
-      createdById: me.id,
-      familyGraphId: membership.familyGraphId,
-    },
-    select: {
-      id: true,
-      fullName: true,
-      createdAt: true,
-      isPrivate: true,
-    },
-  });
-
-  return NextResponse.json({ person });
 }
