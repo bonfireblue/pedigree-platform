@@ -154,15 +154,16 @@ export function layoutPedigree(params: { data: TreeApiData; options: LayoutOptio
     return { birth, created, name, id };
   }
 
-  function comparePersonIds(a: string, b: string) {
-    const ka = personSortKey(a);
-    const kb = personSortKey(b);
+ function comparePersonIds(a: string, b: string): number {
+  const ka = personSortKey(a);
+  const kb = personSortKey(b);
 
-    if (ka.birth !== kb.birth) return ka.birth < kb.birth ? -1 : 1;
-    if (ka.created !== kb.created) return ka.created < kb.created ? -1 : 1;
-    if (ka.name !== kb.name) return ka.name < kb.name ? -1 : 1;
-    return ka.id < kb.id ? -1 : 1;
-  }
+  if (ka.birth !== kb.birth) return ka.birth < kb.birth ? -1 : 1;
+  if (ka.created !== kb.created) return ka.created < kb.created ? -1 : 1;
+  if (ka.name !== kb.name) return ka.name < kb.name ? -1 : 1;
+  if (ka.id !== kb.id) return ka.id < kb.id ? -1 : 1;
+  return 0;
+}
 
   function stableSortPersonIds(ids: string[]) {
     return ids.slice().sort(comparePersonIds);
