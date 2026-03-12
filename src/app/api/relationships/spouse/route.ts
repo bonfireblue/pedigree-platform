@@ -3,58 +3,152 @@ import { prisma } from "@/lib/db";
 import { requireMe } from "@/lib/authz";
 import { rateLimit, clientKey } from "@/lib/rateLimit";
 import { readJson } from "@/lib/body";
+import {
+  RelationshipError,
+  assertCanEditRelationship,
+  assertNoAncestorDescendantSpouse,
+  assertNoDuplicateSpouse,
+  assertNoParentChildConflictWithSpouse,
+  assertNonEmptyIds,
+  assertNotSelf,
+  assertSameFamilyGraph,
+  getExactSpouseOrThrow,
+  getSpouseDeleteWarnings,
+  getTwoPeopleForRelationship,
+  normalizeSpousePair,
+} from "@/lib/relationshipRules";
 
 export async function POST(req: Request) {
-  const me = await requireMe();
-  if (!me) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  try {
+    const me = await requireMe();
+    if (!me) {
+      return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    }
 
-  // 60 requests/min per IP
-  const rl = rateLimit({
-    key: `rel:spouse:${clientKey(req)}`,
-    limit: 60,
-    windowMs: 60_000,
-  });
-  if (!rl.ok) return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
+    const rl = rateLimit({
+      key: `rel:spouse:${clientKey(req)}`,
+      limit: 60,
+      windowMs: 60_000,
+    });
 
-  // 50KB max JSON
-  const parsed = await readJson(req, 50_000);
-  if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
-  const body = parsed.json;
+    if (!rl.ok) {
+      return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
+    }
 
-  const aId = typeof body?.aId === "string" ? body.aId.trim() : "";
-  const bId = typeof body?.bId === "string" ? body.bId.trim() : "";
+    const parsed = await readJson(req, 50_000);
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
 
-  if (!aId || !bId) {
-    return NextResponse.json({ error: "VALIDATION_ERROR" }, { status: 400 });
+    const body = parsed.json;
+    const aId = typeof body?.aId === "string" ? body.aId.trim() : "";
+    const bId = typeof body?.bId === "string" ? body.bId.trim() : "";
+
+    assertNonEmptyIds([aId, bId]);
+    assertNotSelf(aId, bId);
+
+    const { a, b } = await getTwoPeopleForRelationship(aId, bId);
+
+    assertCanEditRelationship(me, a, b);
+    assertSameFamilyGraph(a, b);
+
+    await assertNoDuplicateSpouse(aId, bId);
+    await assertNoParentChildConflictWithSpouse(aId, bId);
+    await assertNoAncestorDescendantSpouse(aId, bId);
+
+    const [xId, yId] = normalizeSpousePair(aId, bId);
+
+    const relationship = await prisma.spouse.create({
+      data: { aId: xId, bId: yId },
+      select: {
+        id: true,
+        aId: true,
+        bId: true,
+        createdAt: true,
+      },
+    });
+
+    return NextResponse.json({ relationship }, { status: 201 });
+  } catch (error) {
+    if (error instanceof RelationshipError) {
+      return NextResponse.json({ error: error.code }, { status: error.status });
+    }
+
+    console.error("POST /api/relationships/spouse failed", error);
+    return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
   }
-  if (aId === bId) {
-    return NextResponse.json({ error: "INVALID_RELATION_SELF" }, { status: 400 });
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const me = await requireMe();
+    if (!me) {
+      return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    }
+
+    const rl = rateLimit({
+      key: `rel:spouse:delete:${clientKey(req)}`,
+      limit: 60,
+      windowMs: 60_000,
+    });
+
+    if (!rl.ok) {
+      return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
+    }
+
+    const parsed = await readJson(req, 50_000);
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+
+    const body = parsed.json;
+    const aId = typeof body?.aId === "string" ? body.aId.trim() : "";
+    const bId = typeof body?.bId === "string" ? body.bId.trim() : "";
+    const dryRun = body?.dryRun === true;
+
+    assertNonEmptyIds([aId, bId]);
+
+    const { a, b } = await getTwoPeopleForRelationship(aId, bId);
+    assertCanEditRelationship(me, a, b);
+    assertSameFamilyGraph(a, b);
+
+    const relationship = await getExactSpouseOrThrow(aId, bId);
+    const warnings = await getSpouseDeleteWarnings(relationship.aId, relationship.bId);
+
+    if (dryRun) {
+      return NextResponse.json(
+        {
+          dryRun: true,
+          relationship,
+          warnings,
+        },
+        { status: 200 }
+      );
+    }
+
+    await prisma.spouse.delete({
+      where: {
+        aId_bId: {
+          aId: relationship.aId,
+          bId: relationship.bId,
+        },
+      },
+    });
+
+    return NextResponse.json(
+      {
+        deleted: true,
+        relationship,
+        warnings,
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    if (error instanceof RelationshipError) {
+      return NextResponse.json({ error: error.code }, { status: error.status });
+    }
+
+    console.error("DELETE /api/relationships/spouse failed", error);
+    return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
   }
-
-  const [a, b] = await Promise.all([
-    prisma.person.findUnique({ where: { id: aId }, select: { id: true, createdById: true } }),
-    prisma.person.findUnique({ where: { id: bId }, select: { id: true, createdById: true } }),
-  ]);
-
-  if (!a || !b) {
-    return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
-  }
-
-  // To link, user must be ADMIN or owner of BOTH people (simple MVP rule)
-  const canEdit = me.isAdmin || (a.createdById === me.id && b.createdById === me.id);
-  if (!canEdit) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
-
-  // Normalize direction so duplicates don't happen (store smaller id as aId)
-  const [xId, yId] = aId < bId ? [aId, bId] : [bId, aId];
-
-  const rel = await prisma.spouse.upsert({
-    where: { aId_bId: { aId: xId, bId: yId } },
-    update: {},
-    create: { aId: xId, bId: yId },
-    select: { aId: true, bId: true },
-  });
-
-  return NextResponse.json({ relationship: rel }, { status: 201 });
 }

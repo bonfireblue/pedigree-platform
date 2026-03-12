@@ -161,6 +161,10 @@ model Person {
   spousesA Spouse[] @relation("SpouseA")
   spousesB Spouse[] @relation("SpouseB")
 
+deletedAt       DateTime?
+  deletedByUserId String?
+  purgeAfter      DateTime?
+
   // Privacy
   isPrivate Boolean @default(false)
 
@@ -183,6 +187,8 @@ familyGraph   FamilyGraph @relation(fields: [familyGraphId], references: [id], o
   @@index([createdById])
   @@index([isPrivate])
   @@index([familyGraphId])
+ @@index([familyGraphId, deletedAt])
+  @@index([purgeAfter])
 }
 
 model ParentChild {

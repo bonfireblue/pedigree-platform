@@ -1,141 +1,174 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { TreeView } from "@/components/TreeView";
 import { toPersonGraph } from "@/lib/treeMap";
-
-type Person = {
-  id: string;
-  fullName: string;
-  createdAt: string;
-  isPrivate: boolean;
-};
-
-type PersonGraph = {
-  person: Person & {
-    bio?: string | null;
-    location?: string | null;
-    birthDate?: string | null;
-    deathDate?: string | null;
-    photoUrl?: string | null;
-  };
-  parents: Person[];
-  children: Person[];
-  spouses: Person[];
-};
+import type { Person, PersonGraph } from "@/lib/treeMap";
 
 type RelMode = "PARENT" | "CHILD" | "SPOUSE";
 
 export default function AppPage() {
   const { status } = useSession();
+
   const [people, setPeople] = useState<Person[]>([]);
   const [fullName, setFullName] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Search (main search box)
+  // main search box
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Person[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // Selected person editor
+  // selected person editor
   const [editName, setEditName] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Tree depth control (API supports depth, not up/down — we map it)
+  // tree depth
   const [up, setUp] = useState(2);
   const [down, setDown] = useState(2);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [graph, setGraph] = useState<PersonGraph | null>(null);
 
-  // Relationship panel state
+  // relationship panel
   const [relMode, setRelMode] = useState<RelMode>("PARENT");
   const [relBusy, setRelBusy] = useState(false);
 
-  // Create & link
+  // create & link
   const [relNewName, setRelNewName] = useState("");
   const [relNewPrivate, setRelNewPrivate] = useState(false);
 
-  // Search & link existing
+  // search & link existing
   const [relQuery, setRelQuery] = useState("");
   const [relResults, setRelResults] = useState<Person[]>([]);
   const [relSearchOpen, setRelSearchOpen] = useState(false);
 
-  const depth = useMemo(() => Math.max(up, down), [up, down]);
+    const depth = useMemo(() => Math.max(up, down), [up, down]);
 
   useEffect(() => {
-    if (selectedId) loadGraph(selectedId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [depth]);
+    if (status === "unauthenticated") {
+      window.location.href = "/sign-in";
+    }
+  }, [status]);
 
-  if (status === "unauthenticated") {
-    window.location.href = "/sign-in";
-    return null;
-  }
+  const loadGraph = useCallback(
+    async (id: string) => {
+      setError(null);
+      setGraph(null);
 
-  async function loadPeople() {
+      const safeDepth = Math.max(2, depth);
+      const res = await fetch(`/api/tree?centerId=${encodeURIComponent(id)}&depth=${safeDepth}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data?.error ?? `Failed to load tree: ${res.status}`);
+        return;
+      }
+
+      const sub = await res.json();
+      const g = toPersonGraph(sub);
+
+      setSelectedId(id);
+      setGraph(g);
+      setEditName(g.person.fullName ?? "");
+    },
+    [depth]
+  );
+
+  const loadPeople = useCallback(async () => {
     setError(null);
+
     const res = await fetch("/api/people");
     if (!res.ok) {
       setError(`Failed to load people: ${res.status}`);
       return;
     }
+
     const data = await res.json();
-    const list = data.people ?? [];
+    const list = (data.people ?? []) as Person[];
     setPeople(list);
 
     if (!selectedId && list.length > 0) {
       const firstId = list[0].id;
       setSelectedId(firstId);
-      loadGraph(firstId);
+      await loadGraph(firstId);
     }
+  }, [selectedId, loadGraph]);
+
+  useEffect(() => {
+    if (selectedId) {
+      void loadGraph(selectedId);
+    }
+  }, [selectedId, loadGraph]);
+
+  useEffect(() => {
+    void loadPeople();
+  }, [loadPeople]);
+
+  if (status === "unauthenticated") {
+    return null;
   }
 
+  async function inviteToClaim(personId: string, email: string) {
+
+    const res = await fetch("/api/invitations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetPersonId: personId, email }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      setError(data?.error ?? `Invite failed: ${res.status}`);
+      return;
+    }
+
+    window.prompt("Invite link (copy/paste):", data.inviteUrl);
+  }
+
+
   async function runSearch(q: string) {
-    const res = await fetch(`/api/search/people?q=${encodeURIComponent(q)}`);
-    if (!res.ok) return;
+    if (!selectedId) {
+      setSearchResults([]);
+      return;
+    }
+
+    const res = await fetch(
+      `/api/people/search?q=${encodeURIComponent(q)}&centerId=${encodeURIComponent(selectedId)}&limit=12`
+    );
+
+    if (!res.ok) {
+      return;
+    }
+
     const data = await res.json();
     setSearchResults(data.results ?? []);
   }
 
   useEffect(() => {
     const q = query.trim();
-    if (!q) {
+    if (!q || !selectedId) {
       setSearchResults([]);
       setSearchOpen(false);
       return;
     }
+
     setSearchOpen(true);
-    const t = setTimeout(() => runSearch(q), 200);
+    const t = setTimeout(() => {
+      void runSearch(q);
+    }, 180);
+
     return () => clearTimeout(t);
-  }, [query]);
+  }, [query, selectedId]);
 
-  async function loadGraph(id: string) {
-    setError(null);
-    setGraph(null);
 
-    // API supports depth (1–4). We map your up/down controls to a single depth.
-    const res = await fetch(
-      `/api/tree?centerId=${encodeURIComponent(id)}&depth=${depth}`
-    );
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data?.error ?? `Failed to load tree: ${res.status}`);
-      return;
-    }
-
-    const sub = await res.json();
-    const g = toPersonGraph(sub);
-    if (!g) {
-      setError("FAILED_TO_MAP_TREE");
-      return;
-    }
-
-    setGraph(g as any);
-    setEditName(g.person.fullName ?? "");
+  async function jumpToPerson(id: string) {
+    setQuery("");
+    setSearchOpen(false);
+    setSearchResults([]);
+    await loadGraph(id);
   }
 
   async function createPerson(e: React.FormEvent) {
@@ -161,6 +194,7 @@ export default function AppPage() {
 
   async function saveSelectedPerson() {
     if (!selectedId) return;
+
     setSaving(true);
     setError(null);
 
@@ -188,6 +222,7 @@ export default function AppPage() {
 
   async function togglePrivate() {
     if (!selectedId) return;
+
     setSaving(true);
     setError(null);
 
@@ -237,7 +272,6 @@ export default function AppPage() {
     setSaving(false);
   }
 
-  // Relationship helpers
   async function linkRelationship(targetId: string) {
     if (!selectedId) return;
 
@@ -245,7 +279,7 @@ export default function AppPage() {
     setError(null);
 
     let url = "";
-    let body: any = {};
+    let body: Record<string, string> = {};
 
     if (relMode === "PARENT") {
       url = "/api/relationships/parent-child";
@@ -279,13 +313,13 @@ export default function AppPage() {
 
   async function createAndLink() {
     if (!selectedId) return;
+
     const name = relNewName.trim();
     if (!name) return;
 
     setRelBusy(true);
     setError(null);
 
-    // 1) create person
     const createRes = await fetch("/api/people", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -307,38 +341,45 @@ export default function AppPage() {
       return;
     }
 
-    // 2) link relationship
     await linkRelationship(newId);
-
-    // reset inputs
     setRelNewName("");
     setRelNewPrivate(false);
     setRelBusy(false);
   }
 
   async function runRelSearch(q: string) {
-    const res = await fetch(`/api/search/people?q=${encodeURIComponent(q)}`);
-    if (!res.ok) return;
+    if (!selectedId) {
+      setRelResults([]);
+      return;
+    }
+
+    const res = await fetch(
+      `/api/people/search?q=${encodeURIComponent(q)}&centerId=${encodeURIComponent(selectedId)}&limit=12`
+    );
+
+    if (!res.ok) {
+      return;
+    }
+
     const data = await res.json();
     setRelResults(data.results ?? []);
   }
 
   useEffect(() => {
     const q = relQuery.trim();
-    if (!q) {
+    if (!q || !selectedId) {
       setRelResults([]);
       setRelSearchOpen(false);
       return;
     }
-    setRelSearchOpen(true);
-    const t = setTimeout(() => runRelSearch(q), 200);
-    return () => clearTimeout(t);
-  }, [relQuery]);
 
-  useEffect(() => {
-    loadPeople();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    setRelSearchOpen(true);
+    const t = setTimeout(() => {
+      void runRelSearch(q);
+    }, 180);
+
+    return () => clearTimeout(t);
+  }, [relQuery, selectedId]);
 
   const relTitle =
     relMode === "PARENT" ? "Add Parent" : relMode === "CHILD" ? "Add Child" : "Add Spouse";
@@ -357,11 +398,12 @@ export default function AppPage() {
 
         <div style={{ marginTop: 12, position: "relative" }}>
           <input
-            placeholder="Search people…"
+            placeholder={selectedId ? "Search in this family graph…" : "Select a person first…"}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => query.trim() && setSearchOpen(true)}
             style={{ width: "100%" }}
+            disabled={!selectedId}
           />
 
           {searchOpen && searchResults.length > 0 ? (
@@ -383,10 +425,7 @@ export default function AppPage() {
                   <button
                     style={{ cursor: "pointer", width: "100%", textAlign: "left" }}
                     onClick={() => {
-                      setQuery("");
-                      setSearchOpen(false);
-                      setSelectedId(r.id);
-                      loadGraph(r.id);
+                      void jumpToPerson(r.id);
                     }}
                   >
                     {r.fullName} {r.isPrivate ? "(private)" : ""}
@@ -420,7 +459,7 @@ export default function AppPage() {
           </button>
         </form>
 
-        <button onClick={loadPeople}>Refresh</button>
+        <button onClick={() => void loadPeople()}>Refresh</button>
 
         {error ? <p style={{ marginTop: 8 }}>{error}</p> : null}
 
@@ -429,8 +468,7 @@ export default function AppPage() {
             <li key={p.id}>
               <button
                 onClick={() => {
-                  setSelectedId(p.id);
-                  loadGraph(p.id);
+                  void loadGraph(p.id);
                 }}
                 style={{ cursor: "pointer" }}
               >
@@ -443,6 +481,14 @@ export default function AppPage() {
 
       <section>
         <h2>Tree</h2>
+
+        <div style={{ marginBottom: 12, display: "flex", gap: 10, alignItems: "center" }}>
+          <a href={selectedId ? `/pedigree?centerId=${encodeURIComponent(selectedId)}` : "/pedigree"}>
+            <button type="button" disabled={!selectedId}>
+              Pedigree View
+            </button>
+          </a>
+        </div>
 
         <div
           style={{
@@ -501,21 +547,20 @@ export default function AppPage() {
                   style={{ minWidth: 260 }}
                 />
 
-                <button onClick={saveSelectedPerson} disabled={saving || !editName.trim()}>
+                <button onClick={() => void saveSelectedPerson()} disabled={saving || !editName.trim()}>
                   {saving ? "Saving..." : "Save name"}
                 </button>
 
-                <button onClick={togglePrivate} disabled={saving}>
+                <button onClick={() => void togglePrivate()} disabled={saving}>
                   {graph.person.isPrivate ? "Make Public" : "Make Private"}
                 </button>
 
-                <button onClick={deleteSelectedPerson} disabled={saving}>
+                <button onClick={() => void deleteSelectedPerson()} disabled={saving}>
                   Delete
                 </button>
               </div>
             </div>
 
-            {/* Relationship panel */}
             <div
               style={{
                 marginBottom: 16,
@@ -552,15 +597,17 @@ export default function AppPage() {
 
               <div style={{ fontWeight: 600, marginBottom: 6 }}>{relTitle}</div>
 
-              {/* Create + link */}
               <div style={{ display: "grid", gap: 8, marginBottom: 12 }}>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                   <input
-                    placeholder={`New ${relMode === "SPOUSE" ? "spouse" : relMode === "PARENT" ? "parent" : "child"} full name`}
+                    placeholder={`New ${
+                      relMode === "SPOUSE" ? "spouse" : relMode === "PARENT" ? "parent" : "child"
+                    } full name`}
                     value={relNewName}
                     onChange={(e) => setRelNewName(e.target.value)}
                     style={{ minWidth: 280 }}
                   />
+
                   <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <input
                       type="checkbox"
@@ -570,16 +617,17 @@ export default function AppPage() {
                     Private
                   </label>
 
-                  <button onClick={createAndLink} disabled={relBusy || !relNewName.trim()}>
+                  <button onClick={() => void createAndLink()} disabled={relBusy || !relNewName.trim()}>
                     {relBusy ? "Working..." : "Create & link"}
                   </button>
                 </div>
               </div>
 
-              {/* Search + link existing */}
-              <div style={{ position: "relative" }}>
+              <div style={{ marginTop: 12, position: "relative" }}>
                 <input
-                  placeholder={`Search existing people to link as ${relMode.toLowerCase()}…`}
+                  placeholder={`Search existing ${
+                    relMode === "SPOUSE" ? "spouse" : relMode === "PARENT" ? "parent" : "child"
+                  }`}
                   value={relQuery}
                   onChange={(e) => setRelQuery(e.target.value)}
                   onFocus={() => relQuery.trim() && setRelSearchOpen(true)}
@@ -600,40 +648,37 @@ export default function AppPage() {
                       zIndex: 10,
                     }}
                   >
-                    {relResults.map((r) => (
-                      <div key={r.id} style={{ padding: 6 }}>
-                        <button
-                          style={{ cursor: "pointer", width: "100%", textAlign: "left" }}
-                          disabled={relBusy}
-                          onClick={() => {
-                            setRelQuery("");
-                            setRelSearchOpen(false);
-                            linkRelationship(r.id);
-                          }}
-                        >
-                          Link: {r.fullName} {r.isPrivate ? "(private)" : ""}
-                        </button>
-                      </div>
-                    ))}
+                    {relResults
+                      .filter((r) => r.id !== selectedId)
+                      .map((r) => (
+                        <div key={r.id} style={{ padding: 6 }}>
+                          <button
+                            style={{ cursor: "pointer", width: "100%", textAlign: "left" }}
+                            onClick={() => {
+                              setRelQuery("");
+                              setRelSearchOpen(false);
+                              void linkRelationship(r.id);
+                            }}
+                          >
+                            {r.fullName} {r.isPrivate ? "(private)" : ""}
+                          </button>
+                        </div>
+                      ))}
                   </div>
                 ) : null}
-              </div>
-
-              <div style={{ marginTop: 10, opacity: 0.75, fontSize: 13 }}>
-                Note: Linking is allowed only if you created both people (or you’re ADMIN).
               </div>
             </div>
 
             <TreeView
               graph={graph}
               onSelectPerson={(id) => {
-                setSelectedId(id);
-                loadGraph(id);
+                void jumpToPerson(id);
               }}
+              onInvite={inviteToClaim}
+              canInvite={true}
             />
+
           </>
-        ) : selectedId ? (
-          <p>Loading…</p>
         ) : null}
       </section>
     </main>

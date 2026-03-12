@@ -45,6 +45,7 @@ export async function GET(req: Request) {
   const people = await prisma.person.findMany({
     where: {
       familyGraphId: membership.familyGraphId,
+      deletedAt: null,
       OR: [
         { isPrivate: false },
         { createdById: me.id },
