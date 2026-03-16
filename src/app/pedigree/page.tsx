@@ -151,6 +151,8 @@ export default function PedigreePage() {
   const [editName, setEditName] = useState("");
   const [editBusy, setEditBusy] = useState(false);
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   useEffect(() => {
     if (status === "unauthenticated") {
       window.location.href = "/sign-in";
@@ -478,8 +480,6 @@ export default function PedigreePage() {
 
   if (status === "loading") return null;
   if (status === "unauthenticated") return null;
-
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <main
