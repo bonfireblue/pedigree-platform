@@ -1,13 +1,21 @@
 import { put } from "@vercel/blob";
 import { type NextRequest, NextResponse } from "next/server";
 import { requireMe } from "@/lib/authz";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
+  console.log("[v0] Upload POST started");
   try {
+    // Debug session
+    const session = await getServerSession(authOptions);
+    console.log("[v0] Session email:", session?.user?.email ?? "none");
+    
     // Check authentication using the same pattern as other APIs
     const me = await requireMe();
+    console.log("[v0] requireMe result:", me?.id ?? "null");
     if (!me) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized - please sign in again" }, { status: 401 });
     }
 
     const formData = await request.formData();

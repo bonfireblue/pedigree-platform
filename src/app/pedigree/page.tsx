@@ -467,6 +467,7 @@ export default function PedigreePage() {
       const res = await fetch(`/api/people/${encodeURIComponent(selectedId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           firstName: editFirstName.trim() || null,
           lastName: editLastName.trim() || null,
@@ -482,12 +483,14 @@ export default function PedigreePage() {
       });
 
       const data = await res.json().catch(() => ({}));
+      console.log("[v0] Save response:", res.status, data);
 
       if (!res.ok) {
         setError(data?.error ?? `SAVE_FAILED_${res.status}`);
         return;
       }
 
+      console.log("[v0] Save successful, reloading tree");
       await loadTree(selectedId);
     } finally {
       setEditBusy(false);
@@ -504,6 +507,7 @@ export default function PedigreePage() {
       const res = await fetch(`/api/people/${encodeURIComponent(selectedId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ isPrivate: !personDetail.person.isPrivate }),
       });
 
