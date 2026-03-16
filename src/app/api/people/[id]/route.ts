@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { sql } from "@/lib/neon-db";
 import { rateLimit, clientKey } from "@/lib/rateLimit";
 import { readJson } from "@/lib/body";
 import { requireMe } from "@/lib/authz";
@@ -17,46 +17,37 @@ type Ctx = {
 type PersonRow = {
   id: string;
   fullName: string;
-  createdAt: Date;
+  createdAt: string;
   isPrivate: boolean;
   bio: string | null;
   location: string | null;
-  birthDate: Date | null;
-  deathDate: Date | null;
+  birthDate: string | null;
+  deathDate: string | null;
   photoUrl: string | null;
   createdById: string;
   claimedByUserId: string | null;
   familyGraphId: string;
-  deletedAt: Date | null;
+  deletedAt: string | null;
   deletedByUserId: string | null;
-  purgeAfter: Date | null;
+  purgeAfter: string | null;
 };
-
-type ParentRelRow = { parent: PersonRow };
-type ChildRelRow = { child: PersonRow };
-type SpouseARow = { b: PersonRow };
-type SpouseBRow = { a: PersonRow };
 
 function slim(p: PersonRow) {
   return {
     id: p.id,
     fullName: p.fullName,
-    createdAt: p.createdAt.toISOString(),
+    createdAt: p.createdAt,
     isPrivate: p.isPrivate,
     claimedByUserId: p.claimedByUserId,
   };
 }
 
 async function getMembershipOr403(userId: string, familyGraphId: string) {
-  return prisma.membership.findUnique({
-    where: {
-      userId_familyGraphId: {
-        userId,
-        familyGraphId,
-      },
-    },
-    select: { role: true },
-  });
+  const rows = await sql`
+    SELECT role FROM "Membership"
+    WHERE "userId" = ${userId} AND "familyGraphId" = ${familyGraphId}
+  `;
+  return rows.length > 0 ? rows[0] : null;
 }
 
 function add7Days(date: Date) {
@@ -70,27 +61,10 @@ function normalizeMode(value: unknown): "soft" | "restore" | "now" {
 }
 
 async function permanentlyDeletePerson(personId: string) {
-  await prisma.$transaction(async (tx) => {
-    await tx.parentChild.deleteMany({
-      where: {
-        OR: [{ parentId: personId }, { childId: personId }],
-      },
-    });
-
-    await tx.spouse.deleteMany({
-      where: {
-        OR: [{ aId: personId }, { bId: personId }],
-      },
-    });
-
-    await tx.invitation.deleteMany({
-      where: { targetPersonId: personId },
-    });
-
-    await tx.person.delete({
-      where: { id: personId },
-    });
-  });
+  await sql`DELETE FROM "ParentChild" WHERE "parentId" = ${personId} OR "childId" = ${personId}`;
+  await sql`DELETE FROM "Spouse" WHERE "aId" = ${personId} OR "bId" = ${personId}`;
+  await sql`DELETE FROM "Invitation" WHERE "targetPersonId" = ${personId}`;
+  await sql`DELETE FROM "Person" WHERE id = ${personId}`;
 }
 
 export async function GET(req: Request, ctx: Ctx) {
@@ -102,42 +76,19 @@ export async function GET(req: Request, ctx: Ctx) {
 
   const { id } = await ctx.params;
 
-  const found = await prisma.person.findUnique({
-    where: { id },
-    include: {
-      parents: {
-        include: {
-          parent: true,
-        },
-      },
-      children: {
-        include: {
-          child: true,
-        },
-      },
-      spousesA: {
-        include: {
-          b: true,
-        },
-      },
-      spousesB: {
-        include: {
-          a: true,
-        },
-      },
-    },
-  });
+  const personRows = await sql`
+    SELECT id, "fullName", "createdAt", "isPrivate", bio, location, "birthDate", "deathDate",
+           "photoUrl", "createdById", "claimedByUserId", "familyGraphId", "deletedAt",
+           "deletedByUserId", "purgeAfter"
+    FROM "Person"
+    WHERE id = ${id}
+  `;
 
-  if (!found || found.deletedAt) {
+  if (personRows.length === 0 || personRows[0].deletedAt) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   }
 
-  const person = found as unknown as PersonRow & {
-    parents: ParentRelRow[];
-    children: ChildRelRow[];
-    spousesA: SpouseARow[];
-    spousesB: SpouseBRow[];
-  };
+  const person = personRows[0] as PersonRow;
 
   const membership = await getMembershipOr403(me.id, person.familyGraphId);
   if (!membership) return NextResponse.json({ error: "NO_MEMBERSHIP" }, { status: 403 });
@@ -146,21 +97,50 @@ export async function GET(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 
-  const parents = person.parents
-    .map((row) => row.parent)
-    .filter((p) => !p.deletedAt)
-    .filter((p) => canViewPerson(me.id, me.isAdmin, membership.role, p))
+  // Get parents
+  const parentRelRows = await sql`
+    SELECT p.id, p."fullName", p."createdAt", p."isPrivate", p."claimedByUserId",
+           p."createdById", p."deletedAt"
+    FROM "ParentChild" pc
+    JOIN "Person" p ON pc."parentId" = p.id
+    WHERE pc."childId" = ${id}
+  `;
+  const parents = parentRelRows
+    .filter((p: PersonRow) => !p.deletedAt)
+    .filter((p: PersonRow) => canViewPerson(me.id, me.isAdmin, membership.role, p))
     .map(slim);
 
-  const children = person.children
-    .map((row) => row.child)
-    .filter((p) => !p.deletedAt)
-    .filter((p) => canViewPerson(me.id, me.isAdmin, membership.role, p))
+  // Get children
+  const childRelRows = await sql`
+    SELECT p.id, p."fullName", p."createdAt", p."isPrivate", p."claimedByUserId",
+           p."createdById", p."deletedAt"
+    FROM "ParentChild" pc
+    JOIN "Person" p ON pc."childId" = p.id
+    WHERE pc."parentId" = ${id}
+  `;
+  const children = childRelRows
+    .filter((p: PersonRow) => !p.deletedAt)
+    .filter((p: PersonRow) => canViewPerson(me.id, me.isAdmin, membership.role, p))
     .map(slim);
 
-  const spouses = [...person.spousesA.map((row) => row.b), ...person.spousesB.map((row) => row.a)]
-    .filter((p) => !p.deletedAt)
-    .filter((p) => canViewPerson(me.id, me.isAdmin, membership.role, p))
+  // Get spouses
+  const spouseRowsA = await sql`
+    SELECT p.id, p."fullName", p."createdAt", p."isPrivate", p."claimedByUserId",
+           p."createdById", p."deletedAt"
+    FROM "Spouse" s
+    JOIN "Person" p ON s."bId" = p.id
+    WHERE s."aId" = ${id}
+  `;
+  const spouseRowsB = await sql`
+    SELECT p.id, p."fullName", p."createdAt", p."isPrivate", p."claimedByUserId",
+           p."createdById", p."deletedAt"
+    FROM "Spouse" s
+    JOIN "Person" p ON s."aId" = p.id
+    WHERE s."bId" = ${id}
+  `;
+  const spouses = [...spouseRowsA, ...spouseRowsB]
+    .filter((p: PersonRow) => !p.deletedAt)
+    .filter((p: PersonRow) => canViewPerson(me.id, me.isAdmin, membership.role, p))
     .map(slim);
 
   return NextResponse.json({
@@ -169,14 +149,14 @@ export async function GET(req: Request, ctx: Ctx) {
       fullName: person.fullName,
       bio: person.bio,
       location: person.location,
-      birthDate: person.birthDate ? person.birthDate.toISOString() : null,
-      deathDate: person.deathDate ? person.deathDate.toISOString() : null,
+      birthDate: person.birthDate,
+      deathDate: person.deathDate,
       photoUrl: person.photoUrl,
       isPrivate: person.isPrivate,
-      createdAt: person.createdAt.toISOString(),
+      createdAt: person.createdAt,
       claimedByUserId: person.claimedByUserId,
-      deletedAt: person.deletedAt ? person.deletedAt.toISOString() : null,
-      purgeAfter: person.purgeAfter ? person.purgeAfter.toISOString() : null,
+      deletedAt: person.deletedAt,
+      purgeAfter: person.purgeAfter,
     },
     parents,
     children,
@@ -197,20 +177,17 @@ export async function PATCH(req: Request, ctx: Ctx) {
     const parsed = await readJson(req, 50_000);
     if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
-    const existing = await prisma.person.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        createdById: true,
-        claimedByUserId: true,
-        familyGraphId: true,
-        deletedAt: true,
-      },
-    });
+    const existingRows = await sql`
+      SELECT id, "createdById", "claimedByUserId", "familyGraphId", "deletedAt"
+      FROM "Person"
+      WHERE id = ${id}
+    `;
 
-    if (!existing || existing.deletedAt) {
+    if (existingRows.length === 0 || existingRows[0].deletedAt) {
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
     }
+
+    const existing = existingRows[0];
 
     const membership = await getMembershipOr403(me.id, existing.familyGraphId);
     if (!membership) return NextResponse.json({ error: "NO_MEMBERSHIP" }, { status: 403 });
@@ -221,10 +198,31 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
     const data = buildPersonPatch(parsed.json);
 
-    const updated = await prisma.person.update({
-      where: { id },
-      data,
-    });
+    // Build dynamic SET clause
+    const setClauses: string[] = [];
+    const values: unknown[] = [];
+    let paramIndex = 1;
+
+    for (const [key, value] of Object.entries(data)) {
+      setClauses.push(`"${key}" = $${paramIndex}`);
+      values.push(value);
+      paramIndex++;
+    }
+
+    if (setClauses.length > 0) {
+      values.push(id);
+      const query = `UPDATE "Person" SET ${setClauses.join(", ")} WHERE id = $${paramIndex}`;
+      await sql.unsafe(query, values);
+    }
+
+    const updatedRows = await sql`
+      SELECT id, "fullName", bio, location, "birthDate", "deathDate", "photoUrl",
+             "isPrivate", "createdAt", "claimedByUserId", "deletedAt", "purgeAfter"
+      FROM "Person"
+      WHERE id = ${id}
+    `;
+
+    const updated = updatedRows[0];
 
     return NextResponse.json({
       person: {
@@ -232,14 +230,14 @@ export async function PATCH(req: Request, ctx: Ctx) {
         fullName: updated.fullName,
         bio: updated.bio,
         location: updated.location,
-        birthDate: updated.birthDate ? updated.birthDate.toISOString() : null,
-        deathDate: updated.deathDate ? updated.deathDate.toISOString() : null,
+        birthDate: updated.birthDate,
+        deathDate: updated.deathDate,
         photoUrl: updated.photoUrl,
         isPrivate: updated.isPrivate,
-        createdAt: updated.createdAt.toISOString(),
+        createdAt: updated.createdAt,
         claimedByUserId: updated.claimedByUserId,
-        deletedAt: updated.deletedAt ? updated.deletedAt.toISOString() : null,
-        purgeAfter: updated.purgeAfter ? updated.purgeAfter.toISOString() : null,
+        deletedAt: updated.deletedAt,
+        purgeAfter: updated.purgeAfter,
       },
     });
   } catch (error) {
@@ -266,22 +264,18 @@ export async function DELETE(req: Request, ctx: Ctx) {
     const body = parsed.ok ? parsed.json : {};
     const mode = normalizeMode(body?.mode);
 
-    const existing = await prisma.person.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        fullName: true,
-        createdById: true,
-        claimedByUserId: true,
-        familyGraphId: true,
-        deletedAt: true,
-        purgeAfter: true,
-      },
-    });
+    const existingRows = await sql`
+      SELECT id, "fullName", "createdById", "claimedByUserId", "familyGraphId",
+             "deletedAt", "purgeAfter"
+      FROM "Person"
+      WHERE id = ${id}
+    `;
 
-    if (!existing) {
+    if (existingRows.length === 0) {
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
     }
+
+    const existing = existingRows[0];
 
     const membership = await getMembershipOr403(me.id, existing.familyGraphId);
     if (!membership) return NextResponse.json({ error: "NO_MEMBERSHIP" }, { status: 403 });
@@ -299,18 +293,15 @@ export async function DELETE(req: Request, ctx: Ctx) {
         return NextResponse.json({ error: "PERSON_NOT_SOFT_DELETED" }, { status: 400 });
       }
 
-      const restored = await prisma.person.update({
-        where: { id: existing.id },
-        data: {
-          deletedAt: null,
-          deletedByUserId: null,
-          purgeAfter: null,
-        },
-      });
+      await sql`
+        UPDATE "Person"
+        SET "deletedAt" = NULL, "deletedByUserId" = NULL, "purgeAfter" = NULL
+        WHERE id = ${existing.id}
+      `;
 
       return NextResponse.json({
         restored: true,
-        personId: restored.id,
+        personId: existing.id,
       });
     }
 
@@ -329,46 +320,29 @@ export async function DELETE(req: Request, ctx: Ctx) {
         alreadyDeleted: true,
         mode: "soft",
         personId: existing.id,
-        deletedAt: existing.deletedAt.toISOString(),
-        purgeAfter: existing.purgeAfter ? existing.purgeAfter.toISOString() : null,
+        deletedAt: existing.deletedAt,
+        purgeAfter: existing.purgeAfter,
       });
     }
 
     const now = new Date();
     const purgeAfter = add7Days(now);
 
-    await prisma.$transaction(async (tx) => {
-  await tx.invitation.updateMany({
-    where: {
-      targetPersonId: existing.id,
-      status: "PENDING",
-    },
-    data: {
-      status: "REVOKED",
-    },
-  });
+    // Soft delete with cleanup
+    await sql`
+      UPDATE "Invitation"
+      SET status = 'REVOKED'
+      WHERE "targetPersonId" = ${existing.id} AND status = 'PENDING'
+    `;
 
-  await tx.parentChild.deleteMany({
-    where: {
-      OR: [{ parentId: existing.id }, { childId: existing.id }],
-    },
-  });
+    await sql`DELETE FROM "ParentChild" WHERE "parentId" = ${existing.id} OR "childId" = ${existing.id}`;
+    await sql`DELETE FROM "Spouse" WHERE "aId" = ${existing.id} OR "bId" = ${existing.id}`;
 
-  await tx.spouse.deleteMany({
-    where: {
-      OR: [{ aId: existing.id }, { bId: existing.id }],
-    },
-  });
-
-  await tx.person.update({
-    where: { id: existing.id },
-    data: {
-      deletedAt: now,
-      deletedByUserId: me.id,
-      purgeAfter,
-    },
-  });
-});
+    await sql`
+      UPDATE "Person"
+      SET "deletedAt" = ${now.toISOString()}, "deletedByUserId" = ${me.id}, "purgeAfter" = ${purgeAfter.toISOString()}
+      WHERE id = ${existing.id}
+    `;
 
     return NextResponse.json({
       deleted: true,

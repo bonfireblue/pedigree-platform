@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { sql } from "@/lib/neon-db";
 import { requireMe } from "@/lib/authz";
 import { rateLimit, clientKey } from "@/lib/rateLimit";
 
@@ -8,18 +8,15 @@ type NodeRow = {
   fullName: string;
   isPrivate: boolean;
   createdById: string;
-  createdAt: Date;
+  createdAt: string;
   bio: string | null;
   location: string | null;
-  birthDate: Date | null;
-  deathDate: Date | null;
+  birthDate: string | null;
+  deathDate: string | null;
   photoUrl: string | null;
   claimedByUserId: string | null;
   familyGraphId: string;
 };
-
-type ParentChildEdge = { parentId: string; childId: string };
-type SpouseEdge = { aId: string; bId: string };
 
 type GraphRole = "FOUNDER" | "ADMIN" | "TRUSTED" | "MEMBER";
 type DiscoverKind = "blood" | "spouse";
@@ -83,46 +80,30 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "MISSING_CENTER_ID" }, { status: 400 });
     }
 
-    const center = (await prisma.person.findFirst({
-        where: { id: centerId, deletedAt: null },
-      select: {
-        id: true,
-        fullName: true,
-        isPrivate: true,
-        createdById: true,
-        createdAt: true,
-        bio: true,
-        location: true,
-        birthDate: true,
-        deathDate: true,
-        photoUrl: true,
-        claimedByUserId: true,
-        familyGraphId: true,
-      },
-    })) as NodeRow | null;
+    const centerRows = await sql`
+      SELECT id, "fullName", "isPrivate", "createdById", "createdAt", bio, location, 
+             "birthDate", "deathDate", "photoUrl", "claimedByUserId", "familyGraphId"
+      FROM "Person"
+      WHERE id = ${centerId} AND "deletedAt" IS NULL
+    `;
 
-    if (!center) {
+    if (centerRows.length === 0) {
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
     }
 
-    const membership = await prisma.membership.findUnique({
-      where: {
-        userId_familyGraphId: {
-          userId: me.id,
-          familyGraphId: center.familyGraphId,
-        },
-      },
-      select: {
-        id: true,
-        role: true,
-        familyGraphId: true,
-      },
-    });
+    const center = centerRows[0] as NodeRow;
 
-    if (!membership) {
+    const membershipRows = await sql`
+      SELECT id, role, "familyGraphId"
+      FROM "Membership"
+      WHERE "userId" = ${me.id} AND "familyGraphId" = ${center.familyGraphId}
+    `;
+
+    if (membershipRows.length === 0) {
       return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
     }
 
+    const membership = membershipRows[0];
     const membershipRole = membership.role as GraphRole;
 
     if (
@@ -157,26 +138,22 @@ export async function GET(req: Request) {
       let childRows: Array<{ childId: string }> = [];
 
       if (bloodBatch.length > 0) {
-        parentRows = await prisma.parentChild.findMany({
-          where: { childId: { in: bloodBatch } },
-          select: { parentId: true },
-        });
+        parentRows = await sql`
+          SELECT "parentId" FROM "ParentChild" WHERE "childId" = ANY(${bloodBatch})
+        `;
 
-        childRows = await prisma.parentChild.findMany({
-          where: { parentId: { in: bloodBatch } },
-          select: { childId: true },
-        });
+        childRows = await sql`
+          SELECT "childId" FROM "ParentChild" WHERE "parentId" = ANY(${bloodBatch})
+        `;
       }
 
-      const spouseRowsA = await prisma.spouse.findMany({
-        where: { aId: { in: batch } },
-        select: { bId: true },
-      });
+      const spouseRowsA = await sql`
+        SELECT "bId" FROM "Spouse" WHERE "aId" = ANY(${batch})
+      `;
 
-      const spouseRowsB = await prisma.spouse.findMany({
-        where: { bId: { in: batch } },
-        select: { aId: true },
-      });
+      const spouseRowsB = await sql`
+        SELECT "aId" FROM "Spouse" WHERE "bId" = ANY(${batch})
+      `;
 
       const bloodCandidateIds = dedupe([
         ...parentRows.map((r) => r.parentId),
@@ -184,8 +161,8 @@ export async function GET(req: Request) {
       ]);
 
       const spouseCandidateIds = dedupe([
-        ...spouseRowsA.map((r) => r.bId),
-        ...spouseRowsB.map((r) => r.aId),
+        ...spouseRowsA.map((r: { bId: string }) => r.bId),
+        ...spouseRowsB.map((r: { aId: string }) => r.aId),
       ]);
 
       const candidateIds = dedupe([...bloodCandidateIds, ...spouseCandidateIds]).filter(
@@ -197,27 +174,14 @@ export async function GET(req: Request) {
       const remaining = Math.max(0, limit - visited.size);
       const cappedCandidateIds = candidateIds.slice(0, remaining);
 
-      const candidateRows = (await prisma.person.findMany({
-  where: {
-    id: { in: cappedCandidateIds },
-    familyGraphId,
-    deletedAt: null,
-  },
-        select: {
-          id: true,
-          fullName: true,
-          isPrivate: true,
-          createdById: true,
-          createdAt: true,
-          bio: true,
-          location: true,
-          birthDate: true,
-          deathDate: true,
-          photoUrl: true,
-          claimedByUserId: true,
-          familyGraphId: true,
-        },
-      })) as NodeRow[];
+      const candidateRows = await sql`
+        SELECT id, "fullName", "isPrivate", "createdById", "createdAt", bio, location,
+               "birthDate", "deathDate", "photoUrl", "claimedByUserId", "familyGraphId"
+        FROM "Person"
+        WHERE id = ANY(${cappedCandidateIds})
+          AND "familyGraphId" = ${familyGraphId}
+          AND "deletedAt" IS NULL
+      ` as NodeRow[];
 
       for (const row of candidateRows) {
         if (visited.size >= limit) break;
@@ -230,9 +194,6 @@ export async function GET(req: Request) {
           row,
         });
 
-        // Critical privacy behavior:
-        // If the node is hidden, do NOT add it to visited/frontier.
-        // That prevents hidden people from leaking through traversal.
         if (!visible) continue;
 
         const discoveredViaBlood = bloodCandidateIds.includes(row.id);
@@ -247,27 +208,15 @@ export async function GET(req: Request) {
       }
     }
 
-    const nodesAll = (await prisma.person.findMany({
-  where: {
-    id: { in: Array.from(visited) },
-    familyGraphId,
-    deletedAt: null,
-  },
-      select: {
-        id: true,
-        fullName: true,
-        isPrivate: true,
-        createdById: true,
-        createdAt: true,
-        bio: true,
-        location: true,
-        birthDate: true,
-        deathDate: true,
-        photoUrl: true,
-        claimedByUserId: true,
-        familyGraphId: true,
-      },
-    })) as NodeRow[];
+    const visitedArray = Array.from(visited);
+    const nodesAll = await sql`
+      SELECT id, "fullName", "isPrivate", "createdById", "createdAt", bio, location,
+             "birthDate", "deathDate", "photoUrl", "claimedByUserId", "familyGraphId"
+      FROM "Person"
+      WHERE id = ANY(${visitedArray})
+        AND "familyGraphId" = ${familyGraphId}
+        AND "deletedAt" IS NULL
+    ` as NodeRow[];
 
     const nodes = nodesAll.filter((row) =>
       canViewNode({
@@ -278,30 +227,19 @@ export async function GET(req: Request) {
       })
     );
 
-    const visibleIds = new Set(nodes.map((n) => n.id));
-    const visibleIdList = Array.from(visibleIds);
+    const visibleIds = nodes.map((n) => n.id);
 
-    const parentChildEdges = (await prisma.parentChild.findMany({
-      where: {
-        parentId: { in: visibleIdList },
-        childId: { in: visibleIdList },
-      },
-      select: {
-        parentId: true,
-        childId: true,
-      },
-    })) as ParentChildEdge[];
+    const parentChildEdges = await sql`
+      SELECT "parentId", "childId"
+      FROM "ParentChild"
+      WHERE "parentId" = ANY(${visibleIds}) AND "childId" = ANY(${visibleIds})
+    `;
 
-    const spouseEdges = (await prisma.spouse.findMany({
-      where: {
-        aId: { in: visibleIdList },
-        bId: { in: visibleIdList },
-      },
-      select: {
-        aId: true,
-        bId: true,
-      },
-    })) as SpouseEdge[];
+    const spouseEdges = await sql`
+      SELECT "aId", "bId"
+      FROM "Spouse"
+      WHERE "aId" = ANY(${visibleIds}) AND "bId" = ANY(${visibleIds})
+    `;
 
     return NextResponse.json({
       centerId,
@@ -311,11 +249,11 @@ export async function GET(req: Request) {
         id: n.id,
         fullName: n.fullName,
         isPrivate: n.isPrivate,
-        createdAt: n.createdAt.toISOString(),
+        createdAt: n.createdAt,
         bio: n.bio,
         location: n.location,
-        birthDate: n.birthDate ? n.birthDate.toISOString() : null,
-        deathDate: n.deathDate ? n.deathDate.toISOString() : null,
+        birthDate: n.birthDate,
+        deathDate: n.deathDate,
         photoUrl: n.photoUrl,
         claimedByUserId: n.claimedByUserId,
       })),

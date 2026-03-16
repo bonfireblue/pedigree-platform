@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { sql } from "@/lib/neon-db";
 import type { Me } from "@/lib/authz";
 
 export class RelationshipError extends Error {
@@ -37,24 +37,14 @@ export function assertNotSelf(aId: string, bId: string, code = "INVALID_RELATION
 }
 
 export async function getTwoPeopleForRelationship(aId: string, bId: string) {
-  const [a, b] = await Promise.all([
-    prisma.person.findFirst({
-      where: { id: aId, deletedAt: null },
-      select: {
-        id: true,
-        createdById: true,
-        familyGraphId: true,
-      },
-    }),
-    prisma.person.findFirst({
-      where: { id: bId, deletedAt: null },
-      select: {
-        id: true,
-        createdById: true,
-        familyGraphId: true,
-      },
-    }),
-  ]);
+  const rows = await sql`
+    SELECT id, "createdById", "familyGraphId"
+    FROM "Person"
+    WHERE id IN (${aId}, ${bId}) AND "deletedAt" IS NULL
+  `;
+
+  const a = rows.find((r: { id: string }) => r.id === aId);
+  const b = rows.find((r: { id: string }) => r.id === bId);
 
   if (!a || !b) {
     throw new RelationshipError("NOT_FOUND", 404);
@@ -85,14 +75,11 @@ export function assertSameFamilyGraph(
 }
 
 export async function assertNoDuplicateParentChild(parentId: string, childId: string) {
-  const existing = await prisma.parentChild.findUnique({
-    where: {
-      parentId_childId: { parentId, childId },
-    },
-    select: { id: true },
-  });
+  const existing = await sql`
+    SELECT id FROM "ParentChild" WHERE "parentId" = ${parentId} AND "childId" = ${childId}
+  `;
 
-  if (existing) {
+  if (existing.length > 0) {
     throw new RelationshipError("RELATIONSHIP_ALREADY_EXISTS", 409);
   }
 }
@@ -100,23 +87,17 @@ export async function assertNoDuplicateParentChild(parentId: string, childId: st
 export async function assertNoDuplicateSpouse(aId: string, bId: string) {
   const [xId, yId] = normalizeSpousePair(aId, bId);
 
-  const existing = await prisma.spouse.findUnique({
-    where: {
-      aId_bId: { aId: xId, bId: yId },
-    },
-    select: { id: true },
-  });
+  const existing = await sql`
+    SELECT id FROM "Spouse" WHERE "aId" = ${xId} AND "bId" = ${yId}
+  `;
 
-  if (existing) {
+  if (existing.length > 0) {
     throw new RelationshipError("RELATIONSHIP_ALREADY_EXISTS", 409);
   }
 }
 
-/**
- * Prevent adding parentId -> childId if childId is already an ancestor of parentId.
- */
 export async function assertNoParentChildCycle(parentId: string, childId: string) {
-  const rows = await prisma.$queryRaw<Array<{ id: string }>>`
+  const rows = await sql`
     WITH RECURSIVE descendants AS (
       SELECT pc."childId" AS id
       FROM "ParentChild" pc
@@ -140,11 +121,11 @@ export async function assertNoParentChildCycle(parentId: string, childId: string
 }
 
 export async function assertChildHasAtMostOneOtherParent(childId: string) {
-  const count = await prisma.parentChild.count({
-    where: { childId },
-  });
+  const countRows = await sql`
+    SELECT COUNT(*)::int as count FROM "ParentChild" WHERE "childId" = ${childId}
+  `;
 
-  if (count >= 2) {
+  if (countRows[0].count >= 2) {
     throw new RelationshipError("CHILD_ALREADY_HAS_MAX_PARENTS", 400);
   }
 }
@@ -152,36 +133,29 @@ export async function assertChildHasAtMostOneOtherParent(childId: string) {
 export async function assertNoSpouseConflictWithParentChild(aId: string, bId: string) {
   const [xId, yId] = normalizeSpousePair(aId, bId);
 
-  const existingSpouse = await prisma.spouse.findUnique({
-    where: {
-      aId_bId: { aId: xId, bId: yId },
-    },
-    select: { id: true },
-  });
+  const existingSpouse = await sql`
+    SELECT id FROM "Spouse" WHERE "aId" = ${xId} AND "bId" = ${yId}
+  `;
 
-  if (existingSpouse) {
+  if (existingSpouse.length > 0) {
     throw new RelationshipError("PARENT_CHILD_SPOUSE_CONFLICT", 400);
   }
 }
 
 export async function assertNoParentChildConflictWithSpouse(aId: string, bId: string) {
-  const existing = await prisma.parentChild.findFirst({
-    where: {
-      OR: [
-        { parentId: aId, childId: bId },
-        { parentId: bId, childId: aId },
-      ],
-    },
-    select: { id: true },
-  });
+  const existing = await sql`
+    SELECT id FROM "ParentChild"
+    WHERE ("parentId" = ${aId} AND "childId" = ${bId})
+       OR ("parentId" = ${bId} AND "childId" = ${aId})
+  `;
 
-  if (existing) {
+  if (existing.length > 0) {
     throw new RelationshipError("SPOUSE_PARENT_CHILD_CONFLICT", 400);
   }
 }
 
 export async function assertNoAncestorDescendantSpouse(aId: string, bId: string) {
-  const rows = await prisma.$queryRaw<Array<{ id: string }>>`
+  const rows = await sql`
     WITH RECURSIVE descendants AS (
       SELECT pc."childId" AS id
       FROM "ParentChild" pc
@@ -203,7 +177,7 @@ export async function assertNoAncestorDescendantSpouse(aId: string, bId: string)
     throw new RelationshipError("ANCESTOR_DESCENDANT_SPOUSE_FORBIDDEN", 400);
   }
 
-  const reverseRows = await prisma.$queryRaw<Array<{ id: string }>>`
+  const reverseRows = await sql`
     WITH RECURSIVE descendants AS (
       SELECT pc."childId" AS id
       FROM "ParentChild" pc
@@ -227,45 +201,33 @@ export async function assertNoAncestorDescendantSpouse(aId: string, bId: string)
 }
 
 export async function getExactParentChildOrThrow(parentId: string, childId: string) {
-  const rel = await prisma.parentChild.findUnique({
-    where: {
-      parentId_childId: { parentId, childId },
-    },
-    select: {
-      id: true,
-      parentId: true,
-      childId: true,
-      createdAt: true,
-    },
-  });
+  const rows = await sql`
+    SELECT id, "parentId", "childId", "createdAt"
+    FROM "ParentChild"
+    WHERE "parentId" = ${parentId} AND "childId" = ${childId}
+  `;
 
-  if (!rel) {
+  if (rows.length === 0) {
     throw new RelationshipError("RELATIONSHIP_NOT_FOUND", 404);
   }
 
-  return rel;
+  return rows[0];
 }
 
 export async function getExactSpouseOrThrow(aId: string, bId: string) {
   const [xId, yId] = normalizeSpousePair(aId, bId);
 
-  const rel = await prisma.spouse.findUnique({
-    where: {
-      aId_bId: { aId: xId, bId: yId },
-    },
-    select: {
-      id: true,
-      aId: true,
-      bId: true,
-      createdAt: true,
-    },
-  });
+  const rows = await sql`
+    SELECT id, "aId", "bId", "createdAt"
+    FROM "Spouse"
+    WHERE "aId" = ${xId} AND "bId" = ${yId}
+  `;
 
-  if (!rel) {
+  if (rows.length === 0) {
     throw new RelationshipError("RELATIONSHIP_NOT_FOUND", 404);
   }
 
-  return rel;
+  return rows[0];
 }
 
 export async function getParentChildDeleteWarnings(
@@ -274,10 +236,11 @@ export async function getParentChildDeleteWarnings(
 ): Promise<DeleteImpactWarning[]> {
   const warnings: DeleteImpactWarning[] = [];
 
-  const parentCount = await prisma.parentChild.count({
-    where: { childId },
-  });
+  const countRows = await sql`
+    SELECT COUNT(*)::int as count FROM "ParentChild" WHERE "childId" = ${childId}
+  `;
 
+  const parentCount = countRows[0].count;
   const remaining = Math.max(0, parentCount - 1);
 
   if (remaining === 0) {
@@ -301,25 +264,26 @@ export async function getSpouseDeleteWarnings(
 ): Promise<DeleteImpactWarning[]> {
   const warnings: DeleteImpactWarning[] = [];
 
-  const sharedChildrenCount = await prisma.parentChild.count({
-    where: {
-      childId: {
-        in: (
-          await prisma.parentChild.findMany({
-            where: { parentId: aId },
-            select: { childId: true },
-          })
-        ).map((r) => r.childId),
-      },
-      parentId: bId,
-    },
-  });
+  // Get children of aId
+  const aChildren = await sql`
+    SELECT "childId" FROM "ParentChild" WHERE "parentId" = ${aId}
+  `;
+  const aChildIds = aChildren.map((r: { childId: string }) => r.childId);
 
-  if (sharedChildrenCount > 0) {
-    warnings.push({
-      code: "SPOUSE_PAIR_HAS_SHARED_CHILDREN",
-      message: `Deleting this spouse link will split a couple that currently shares ${sharedChildrenCount} child${sharedChildrenCount === 1 ? "" : "ren"} in the graph.`,
-    });
+  if (aChildIds.length > 0) {
+    // Count how many are also parented by bId
+    const sharedRows = await sql`
+      SELECT COUNT(*)::int as count FROM "ParentChild"
+      WHERE "parentId" = ${bId} AND "childId" = ANY(${aChildIds})
+    `;
+    const sharedChildrenCount = sharedRows[0].count;
+
+    if (sharedChildrenCount > 0) {
+      warnings.push({
+        code: "SPOUSE_PAIR_HAS_SHARED_CHILDREN",
+        message: `Deleting this spouse link will split a couple that currently shares ${sharedChildrenCount} child${sharedChildrenCount === 1 ? "" : "ren"} in the graph.`,
+      });
+    }
   }
 
   return warnings;

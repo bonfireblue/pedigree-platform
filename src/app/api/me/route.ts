@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { sql } from "@/lib/neon-db";
 
 function isVerifiedRole(role: string) {
   return role === "FOUNDER" || role === "TRUSTED" || role === "ADMIN";
@@ -12,45 +12,47 @@ async function computeCanInvite(params: { meId: string; familyGraphId: string; r
 
   if (isVerifiedRole(role)) return true;
 
-  const graph = await prisma.familyGraph.findUnique({
-    where: { id: familyGraphId },
-    select: { createdById: true },
-  });
-  if (!graph) return false;
+  const graphRows = await sql`
+    SELECT "createdById" FROM "FamilyGraph" WHERE id = ${familyGraphId}
+  `;
+  if (graphRows.length === 0) return false;
 
+  const graph = graphRows[0];
   if (graph.createdById === meId) return true;
 
-  const firstTenAccepted = await prisma.invitation.findMany({
-    where: {
-      familyGraphId,
-      inviterUserId: graph.createdById,
-      status: "ACCEPTED",
-      acceptedByUserId: { not: null },
-    },
-    orderBy: { acceptedAt: "asc" },
-    take: 10,
-    select: { acceptedByUserId: true },
-  });
+  const firstTenAccepted = await sql`
+    SELECT "acceptedByUserId" FROM "Invitation"
+    WHERE "familyGraphId" = ${familyGraphId}
+      AND "inviterUserId" = ${graph.createdById}
+      AND status = 'ACCEPTED'
+      AND "acceptedByUserId" IS NOT NULL
+    ORDER BY "acceptedAt" ASC
+    LIMIT 10
+  `;
 
-  return firstTenAccepted.some((r) => r.acceptedByUserId === meId);
+  return firstTenAccepted.some((r: { acceptedByUserId: string }) => r.acceptedByUserId === meId);
 }
 
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
-  const me = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { id: true, email: true },
-  });
-  if (!me) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  const meRows = await sql`
+    SELECT id, email FROM "User" WHERE email = ${session.user.email}
+  `;
+  if (meRows.length === 0) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
-  const membership = await prisma.membership.findFirst({
-    where: { userId: me.id },
-    select: { familyGraphId: true, role: true },
-    orderBy: { createdAt: "asc" },
-  });
-  if (!membership) return NextResponse.json({ error: "NO_MEMBERSHIP" }, { status: 403 });
+  const me = meRows[0];
+
+  const membershipRows = await sql`
+    SELECT "familyGraphId", role FROM "Membership"
+    WHERE "userId" = ${me.id}
+    ORDER BY "createdAt" ASC
+    LIMIT 1
+  `;
+  if (membershipRows.length === 0) return NextResponse.json({ error: "NO_MEMBERSHIP" }, { status: 403 });
+
+  const membership = membershipRows[0];
 
   const canInvite = await computeCanInvite({
     meId: me.id,

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { sql } from "@/lib/neon-db";
 import { requireMe } from "@/lib/authz";
 import { rateLimit, clientKey } from "@/lib/rateLimit";
 import { readJson } from "@/lib/body";
@@ -58,17 +58,19 @@ export async function POST(req: Request) {
 
     const [xId, yId] = normalizeSpousePair(aId, bId);
 
-    const relationship = await prisma.spouse.create({
-      data: { aId: xId, bId: yId },
-      select: {
-        id: true,
-        aId: true,
-        bId: true,
-        createdAt: true,
-      },
-    });
+    const relId = crypto.randomUUID();
+    await sql`
+      INSERT INTO "Spouse" (id, "aId", "bId", "createdAt")
+      VALUES (${relId}, ${xId}, ${yId}, NOW())
+    `;
 
-    return NextResponse.json({ relationship }, { status: 201 });
+    const rows = await sql`
+      SELECT id, "aId", "bId", "createdAt"
+      FROM "Spouse"
+      WHERE id = ${relId}
+    `;
+
+    return NextResponse.json({ relationship: rows[0] }, { status: 201 });
   } catch (error) {
     if (error instanceof RelationshipError) {
       return NextResponse.json({ error: error.code }, { status: error.status });
@@ -126,14 +128,9 @@ export async function DELETE(req: Request) {
       );
     }
 
-    await prisma.spouse.delete({
-      where: {
-        aId_bId: {
-          aId: relationship.aId,
-          bId: relationship.bId,
-        },
-      },
-    });
+    await sql`
+      DELETE FROM "Spouse" WHERE "aId" = ${relationship.aId} AND "bId" = ${relationship.bId}
+    `;
 
     return NextResponse.json(
       {

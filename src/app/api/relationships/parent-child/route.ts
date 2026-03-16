@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { sql } from "@/lib/neon-db";
 import { requireMe } from "@/lib/authz";
 import { rateLimit, clientKey } from "@/lib/rateLimit";
 import { readJson } from "@/lib/body";
@@ -57,17 +57,19 @@ export async function POST(req: Request) {
     await assertNoSpouseConflictWithParentChild(parentId, childId);
     await assertNoParentChildCycle(parentId, childId);
 
-    const relationship = await prisma.parentChild.create({
-      data: { parentId, childId },
-      select: {
-        id: true,
-        parentId: true,
-        childId: true,
-        createdAt: true,
-      },
-    });
+    const relId = crypto.randomUUID();
+    await sql`
+      INSERT INTO "ParentChild" (id, "parentId", "childId", "createdAt")
+      VALUES (${relId}, ${parentId}, ${childId}, NOW())
+    `;
 
-    return NextResponse.json({ relationship }, { status: 201 });
+    const rows = await sql`
+      SELECT id, "parentId", "childId", "createdAt"
+      FROM "ParentChild"
+      WHERE id = ${relId}
+    `;
+
+    return NextResponse.json({ relationship: rows[0] }, { status: 201 });
   } catch (error) {
     if (error instanceof RelationshipError) {
       return NextResponse.json({ error: error.code }, { status: error.status });
@@ -125,11 +127,9 @@ export async function DELETE(req: Request) {
       );
     }
 
-    await prisma.parentChild.delete({
-      where: {
-        parentId_childId: { parentId, childId },
-      },
-    });
+    await sql`
+      DELETE FROM "ParentChild" WHERE "parentId" = ${parentId} AND "childId" = ${childId}
+    `;
 
     return NextResponse.json(
       {
