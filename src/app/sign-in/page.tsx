@@ -82,6 +82,15 @@ export default function SignInPage() {
           />
         </label>
 
+        <div style={{ textAlign: "right" }}>
+          <a
+            href="/forgot-password"
+            style={{ fontSize: 14, color: "#666" }}
+          >
+            Forgot password?
+          </a>
+        </div>
+
         {error && (
           <div style={{ color: "crimson", fontSize: 14 }}>
             {error}
