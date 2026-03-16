@@ -163,12 +163,26 @@ model Person {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  fullName  String
-  bio       String?
-  birthDate DateTime?
-  deathDate DateTime?
-  location  String?
-  photoUrl  String?
+  // Name fields
+  firstName String?
+  lastName  String?
+  fullName  String   // Computed from firstName + lastName, or entered directly
+
+  // Life details
+  birthDate       DateTime?
+  deathDate       DateTime?
+  grewUpLocation  String?   // Where did you grow up?
+  currentLocation String?   // Where do you live now?
+
+  // Profile / Story
+  bio        String?
+  proudOf    String?   // What are you most proud of?
+  occupation String?   // Career / What do you do?
+  interests  String?   // Hobbies / Interests
+
+  // Legacy fields
+  location String?   // Deprecated - use grewUpLocation or currentLocation
+  photoUrl String?
 
   // Relationships
   parents  ParentChild[] @relation("ChildParents")
