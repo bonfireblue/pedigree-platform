@@ -36,7 +36,7 @@ export default function ForgotPasswordPage() {
 
   if (success) {
     return (
-      <main style={{ maxWidth: 420, margin: "80px auto", padding: 16 }}>
+      <main style={{ maxWidth: 420, margin: "0 auto", padding: "40px 20px", minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center" }}>
         <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>
           Check your email
         </h1>
@@ -52,7 +52,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main style={{ maxWidth: 420, margin: "80px auto", padding: 16 }}>
+    <main style={{ maxWidth: 420, margin: "0 auto", padding: "40px 20px", minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center" }}>
       <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>
         Forgot Password
       </h1>

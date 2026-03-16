@@ -57,7 +57,7 @@ function ResetPasswordForm() {
 
   if (!token) {
     return (
-      <main style={{ maxWidth: 420, margin: "80px auto", padding: 16 }}>
+      <main style={{ maxWidth: 420, margin: "0 auto", padding: "40px 20px", minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center" }}>
         <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>
           Invalid Link
         </h1>
@@ -72,7 +72,7 @@ function ResetPasswordForm() {
   }
 
   return (
-    <main style={{ maxWidth: 420, margin: "80px auto", padding: 16 }}>
+    <main style={{ maxWidth: 420, margin: "0 auto", padding: "40px 20px", minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center" }}>
       <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>
         Reset Password
       </h1>

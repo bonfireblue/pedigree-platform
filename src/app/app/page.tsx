@@ -387,12 +387,21 @@ export default function AppPage() {
   return (
     <main
       style={{
-        padding: 40,
+        padding: "20px",
         display: "grid",
         gridTemplateColumns: "1fr 1fr",
         gap: 24,
       }}
+      className="app-main"
     >
+      <style>{`
+        @media (max-width: 768px) {
+          .app-main {
+            grid-template-columns: 1fr !important;
+            padding: 16px !important;
+          }
+        }
+      `}</style>
       <section>
         <h1>People</h1>
 

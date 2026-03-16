@@ -479,6 +479,8 @@ export default function PedigreePage() {
   if (status === "loading") return null;
   if (status === "unauthenticated") return null;
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
     <main
       style={{
@@ -487,7 +489,68 @@ export default function PedigreePage() {
         color: "#0f172a",
       }}
     >
+      {/* Mobile sidebar toggle */}
+      <button
+        type="button"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        style={{
+          display: "none",
+          position: "fixed",
+          bottom: 20,
+          right: 20,
+          zIndex: 50,
+          width: 56,
+          height: 56,
+          borderRadius: "50%",
+          background: "#111827",
+          color: "#ffffff",
+          border: "none",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          cursor: "pointer",
+          fontSize: 24,
+        }}
+        className="mobile-fab"
+      >
+        {sidebarOpen ? "×" : "☰"}
+      </button>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .mobile-fab { display: flex !important; align-items: center; justify-content: center; }
+          .pedigree-grid { grid-template-columns: 1fr !important; }
+          .pedigree-sidebar { 
+            position: fixed !important; 
+            top: 0 !important; 
+            right: 0 !important; 
+            bottom: 0 !important; 
+            width: 100% !important;
+            max-width: 360px !important;
+            z-index: 40 !important;
+            transform: translateX(${sidebarOpen ? "0" : "100%"});
+            transition: transform 0.3s ease;
+            overflow-y: auto !important;
+            background: #f8fafc !important;
+            padding: 16px !important;
+          }
+          .pedigree-overlay {
+            display: ${sidebarOpen ? "block" : "none"} !important;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.3);
+            z-index: 35;
+          }
+        }
+      `}</style>
+
+      {/* Mobile overlay */}
+      <div 
+        className="pedigree-overlay" 
+        style={{ display: "none" }}
+        onClick={() => setSidebarOpen(false)}
+      />
+
       <div
+        className="pedigree-grid"
         style={{
           height: "100vh",
           display: "grid",
@@ -667,6 +730,7 @@ export default function PedigreePage() {
         </section>
 
         <aside
+          className="pedigree-sidebar"
           style={{
             minWidth: 0,
             display: "grid",

@@ -30,20 +30,16 @@ export default function SignUpPage() {
     setLoading(true);
 
     try {
-      console.log("[v0] Submitting registration for:", email);
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
-      console.log("[v0] Registration response status:", res.status);
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        console.log("[v0] Registration error data:", data);
         throw new Error(data?.error || "Sign up failed");
       }
-      console.log("[v0] Registration successful, attempting auto sign-in");
 
       // Auto sign-in after successful registration
       const result = await signIn("credentials", {
@@ -67,7 +63,15 @@ export default function SignUpPage() {
   }
 
   return (
-    <main style={{ maxWidth: 420, margin: "60px auto", padding: 16 }}>
+    <main style={{ 
+      maxWidth: 420, 
+      margin: "0 auto", 
+      padding: "40px 20px",
+      minHeight: "100vh",
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "center",
+    }}>
       <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Create account</h1>
       <p style={{ opacity: 0.8, marginBottom: 20 }}>
         Create an account to start building your family tree.
