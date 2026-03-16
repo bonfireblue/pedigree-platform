@@ -42,12 +42,19 @@ type PersonLite = {
 type PersonDetail = {
   person: {
     id: string;
+    firstName?: string | null;
+    lastName?: string | null;
     fullName: string;
     bio?: string | null;
     location?: string | null;
+    grewUpLocation?: string | null;
+    currentLocation?: string | null;
     birthDate?: string | null;
     deathDate?: string | null;
     photoUrl?: string | null;
+    proudOf?: string | null;
+    occupation?: string | null;
+    interests?: string | null;
     isPrivate: boolean;
     createdAt: string;
     claimedByUserId?: string | null;
@@ -148,7 +155,14 @@ export default function PedigreePage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteBusy, setInviteBusy] = useState(false);
 
-  const [editName, setEditName] = useState("");
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
+  const [editBirthDate, setEditBirthDate] = useState("");
+  const [editDeathDate, setEditDeathDate] = useState("");
+  const [editGrewUpLocation, setEditGrewUpLocation] = useState("");
+  const [editOccupation, setEditOccupation] = useState("");
+  const [editProudOf, setEditProudOf] = useState("");
+  const [editInterests, setEditInterests] = useState("");
   const [editBusy, setEditBusy] = useState(false);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -178,8 +192,18 @@ export default function PedigreePage() {
         return;
       }
 
-      setPersonDetail(data as PersonDetail);
-      setEditName((data as PersonDetail).person.fullName ?? "");
+      const detail = data as PersonDetail;
+      setPersonDetail(detail);
+      
+      // Populate form fields
+      setEditFirstName(detail.person.firstName ?? "");
+      setEditLastName(detail.person.lastName ?? "");
+      setEditBirthDate(detail.person.birthDate ? detail.person.birthDate.split("T")[0] : "");
+      setEditDeathDate(detail.person.deathDate ? detail.person.deathDate.split("T")[0] : "");
+      setEditGrewUpLocation(detail.person.grewUpLocation ?? "");
+      setEditOccupation(detail.person.occupation ?? "");
+      setEditProudOf(detail.person.proudOf ?? "");
+      setEditInterests(detail.person.interests ?? "");
     } finally {
       setLoadingDetail(false);
     }
@@ -391,7 +415,10 @@ export default function PedigreePage() {
   }
 
   async function saveSelectedPerson() {
-    if (!selectedId || !editName.trim()) return;
+    if (!selectedId) return;
+
+    // Compute fullName from firstName + lastName
+    const fullName = [editFirstName.trim(), editLastName.trim()].filter(Boolean).join(" ") || "Unnamed";
 
     setEditBusy(true);
     setError(null);
@@ -400,7 +427,17 @@ export default function PedigreePage() {
       const res = await fetch(`/api/people/${encodeURIComponent(selectedId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fullName: editName.trim() }),
+        body: JSON.stringify({
+          firstName: editFirstName.trim() || null,
+          lastName: editLastName.trim() || null,
+          fullName,
+          birthDate: editBirthDate || null,
+          deathDate: editDeathDate || null,
+          grewUpLocation: editGrewUpLocation.trim() || null,
+          occupation: editOccupation.trim() || null,
+          proudOf: editProudOf.trim() || null,
+          interests: editInterests.trim() || null,
+        }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -758,47 +795,163 @@ export default function PedigreePage() {
               <div style={{ marginTop: 12, color: "#64748b" }}>Loading details…</div>
             ) : personDetail ? (
               <>
-                <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
-                  <div style={{ fontSize: 13, color: "#64748b" }}>
-                    ID: <span style={{ color: "#111827", fontWeight: 700 }}>{personDetail.person.id}</span>
-                  </div>
-                  <div style={{ fontSize: 13, color: "#64748b" }}>
-                    Privacy:{" "}
-                    <span style={{ color: "#111827", fontWeight: 700 }}>
-                      {personDetail.person.isPrivate ? "Private" : "Public"}
-                    </span>
-                  </div>
-                  {personDetail.person.location ? (
-                    <div style={{ fontSize: 13, color: "#64748b" }}>
-                      Location:{" "}
-                      <span style={{ color: "#111827", fontWeight: 700 }}>
-                        {personDetail.person.location}
-                      </span>
+                <div style={{ marginTop: 14, display: "grid", gap: 14 }}>
+                  {/* Name fields */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <div>
+                      <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4, display: "block" }}>
+                        First Name
+                      </label>
+                      <input
+                        value={editFirstName}
+                        onChange={(e) => setEditFirstName(e.target.value)}
+                        placeholder="First name"
+                        style={{
+                          width: "100%",
+                          borderRadius: 12,
+                          border: "1px solid #d1d5db",
+                          padding: "10px 12px",
+                        }}
+                      />
                     </div>
-                  ) : null}
-                </div>
+                    <div>
+                      <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4, display: "block" }}>
+                        Last Name
+                      </label>
+                      <input
+                        value={editLastName}
+                        onChange={(e) => setEditLastName(e.target.value)}
+                        placeholder="Last name"
+                        style={{
+                          width: "100%",
+                          borderRadius: 12,
+                          border: "1px solid #d1d5db",
+                          padding: "10px 12px",
+                        }}
+                      />
+                    </div>
+                  </div>
 
-                <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
-                  <input
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    placeholder="Edit full name"
-                    style={{
-                      width: "100%",
-                      borderRadius: 12,
-                      border: "1px solid #d1d5db",
-                      padding: "10px 12px",
-                    }}
-                  />
+                  {/* Lived From - To */}
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4, display: "block" }}>
+                      Lived From - To
+                    </label>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, alignItems: "center" }}>
+                      <input
+                        type="date"
+                        value={editBirthDate}
+                        onChange={(e) => setEditBirthDate(e.target.value)}
+                        style={{
+                          width: "100%",
+                          borderRadius: 12,
+                          border: "1px solid #d1d5db",
+                          padding: "10px 12px",
+                        }}
+                      />
+                      <span style={{ color: "#64748b", fontWeight: 700 }}>—</span>
+                      <input
+                        type="date"
+                        value={editDeathDate}
+                        onChange={(e) => setEditDeathDate(e.target.value)}
+                        placeholder="Present"
+                        style={{
+                          width: "100%",
+                          borderRadius: 12,
+                          border: "1px solid #d1d5db",
+                          padding: "10px 12px",
+                        }}
+                      />
+                    </div>
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+                      Leave end date empty for living people
+                    </div>
+                  </div>
 
+                  {/* Where did you grow up */}
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4, display: "block" }}>
+                      Where did you grow up?
+                    </label>
+                    <input
+                      value={editGrewUpLocation}
+                      onChange={(e) => setEditGrewUpLocation(e.target.value)}
+                      placeholder="City, Country"
+                      style={{
+                        width: "100%",
+                        borderRadius: 12,
+                        border: "1px solid #d1d5db",
+                        padding: "10px 12px",
+                      }}
+                    />
+                  </div>
+
+                  {/* Occupation */}
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4, display: "block" }}>
+                      Occupation / Career
+                    </label>
+                    <input
+                      value={editOccupation}
+                      onChange={(e) => setEditOccupation(e.target.value)}
+                      placeholder="What do/did you do for work?"
+                      style={{
+                        width: "100%",
+                        borderRadius: 12,
+                        border: "1px solid #d1d5db",
+                        padding: "10px 12px",
+                      }}
+                    />
+                  </div>
+
+                  {/* Interests */}
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4, display: "block" }}>
+                      Hobbies / Interests
+                    </label>
+                    <input
+                      value={editInterests}
+                      onChange={(e) => setEditInterests(e.target.value)}
+                      placeholder="What do you enjoy doing?"
+                      style={{
+                        width: "100%",
+                        borderRadius: 12,
+                        border: "1px solid #d1d5db",
+                        padding: "10px 12px",
+                      }}
+                    />
+                  </div>
+
+                  {/* Proud Of */}
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4, display: "block" }}>
+                      What are you most proud of?
+                    </label>
+                    <textarea
+                      value={editProudOf}
+                      onChange={(e) => setEditProudOf(e.target.value)}
+                      placeholder="Share something you're proud of..."
+                      rows={3}
+                      style={{
+                        width: "100%",
+                        borderRadius: 12,
+                        border: "1px solid #d1d5db",
+                        padding: "10px 12px",
+                        resize: "vertical",
+                        fontFamily: "inherit",
+                      }}
+                    />
+                  </div>
+
+                  {/* Actions */}
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button
                       type="button"
                       onClick={() => void saveSelectedPerson()}
-                      disabled={!selectedId || !editName.trim() || editBusy}
+                      disabled={!selectedId || editBusy}
                       style={actionButtonStyle(true)}
                     >
-                      {editBusy ? "Saving..." : "Save"}
+                      {editBusy ? "Saving..." : "Save Changes"}
                     </button>
 
                     <button

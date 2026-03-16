@@ -16,14 +16,21 @@ type Ctx = {
 
 type PersonRow = {
   id: string;
+  firstName: string | null;
+  lastName: string | null;
   fullName: string;
   createdAt: string;
   isPrivate: boolean;
   bio: string | null;
   location: string | null;
+  grewUpLocation: string | null;
+  currentLocation: string | null;
   birthDate: string | null;
   deathDate: string | null;
   photoUrl: string | null;
+  proudOf: string | null;
+  occupation: string | null;
+  interests: string | null;
   createdById: string;
   claimedByUserId: string | null;
   familyGraphId: string;
@@ -77,9 +84,10 @@ export async function GET(req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
 
   const personRows = await sql`
-    SELECT id, "fullName", "createdAt", "isPrivate", bio, location, "birthDate", "deathDate",
-           "photoUrl", "createdById", "claimedByUserId", "familyGraphId", "deletedAt",
-           "deletedByUserId", "purgeAfter"
+    SELECT id, "firstName", "lastName", "fullName", "createdAt", "isPrivate", bio, location,
+           "grewUpLocation", "currentLocation", "birthDate", "deathDate", "photoUrl",
+           "proudOf", occupation, interests, "createdById", "claimedByUserId", "familyGraphId",
+           "deletedAt", "deletedByUserId", "purgeAfter"
     FROM "Person"
     WHERE id = ${id}
   `;
@@ -146,12 +154,19 @@ export async function GET(req: Request, ctx: Ctx) {
   return NextResponse.json({
     person: {
       id: person.id,
+      firstName: person.firstName,
+      lastName: person.lastName,
       fullName: person.fullName,
       bio: person.bio,
       location: person.location,
+      grewUpLocation: person.grewUpLocation,
+      currentLocation: person.currentLocation,
       birthDate: person.birthDate,
       deathDate: person.deathDate,
       photoUrl: person.photoUrl,
+      proudOf: person.proudOf,
+      occupation: person.occupation,
+      interests: person.interests,
       isPrivate: person.isPrivate,
       createdAt: person.createdAt,
       claimedByUserId: person.claimedByUserId,
@@ -216,8 +231,10 @@ export async function PATCH(req: Request, ctx: Ctx) {
     }
 
     const updatedRows = await sql`
-      SELECT id, "fullName", bio, location, "birthDate", "deathDate", "photoUrl",
-             "isPrivate", "createdAt", "claimedByUserId", "deletedAt", "purgeAfter"
+      SELECT id, "firstName", "lastName", "fullName", bio, location, "grewUpLocation",
+             "currentLocation", "birthDate", "deathDate", "photoUrl", "proudOf",
+             occupation, interests, "isPrivate", "createdAt", "claimedByUserId",
+             "deletedAt", "purgeAfter"
       FROM "Person"
       WHERE id = ${id}
     `;
@@ -227,12 +244,19 @@ export async function PATCH(req: Request, ctx: Ctx) {
     return NextResponse.json({
       person: {
         id: updated.id,
+        firstName: updated.firstName,
+        lastName: updated.lastName,
         fullName: updated.fullName,
         bio: updated.bio,
         location: updated.location,
+        grewUpLocation: updated.grewUpLocation,
+        currentLocation: updated.currentLocation,
         birthDate: updated.birthDate,
         deathDate: updated.deathDate,
         photoUrl: updated.photoUrl,
+        proudOf: updated.proudOf,
+        occupation: updated.occupation,
+        interests: updated.interests,
         isPrivate: updated.isPrivate,
         createdAt: updated.createdAt,
         claimedByUserId: updated.claimedByUserId,
