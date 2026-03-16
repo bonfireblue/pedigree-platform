@@ -266,6 +266,7 @@ useEffect(() => {
           <g>
             {layout.nodes.map((n) => {
               const person = personById.get(n.id);
+              const isSelected = selectedId ? n.id === selectedId : n.id === layout.centerId;
 
               return (
                 <foreignObject
@@ -280,7 +281,7 @@ useEffect(() => {
                     <NodeCard
                       p={person}
                       onClick={() => handleSelectPerson(n.id)}
-                      isCenter={n.id === layout.centerId}
+                      isSelected={isSelected}
                     />
                   </div>
                 </foreignObject>
@@ -296,7 +297,7 @@ useEffect(() => {
 function NodeCard({
   p,
   onClick,
-  isCenter,
+  isSelected,
 }: {
   p?: {
     id: string;
@@ -305,7 +306,7 @@ function NodeCard({
     isPrivate?: boolean;
   };
   onClick?: () => void;
-  isCenter?: boolean;
+  isSelected?: boolean;
 }) {
   if (!p) {
     return (
@@ -341,15 +342,16 @@ function NodeCard({
         width: "100%",
         height: "100%",
         borderRadius: 14,
-       border: isCenter ? "3px solid #60a5fa" : "1px solid #d1d5db",
-        background: "#ffffff",
+        border: isSelected ? "3px solid #3b82f6" : "1px solid #d1d5db",
+        background: isSelected ? "#eff6ff" : "#ffffff",
         color: "#111827",
         padding: 10,
         textAlign: "left",
         cursor: "pointer",
-        boxShadow: isCenter
-  ? "0 0 18px 6px rgba(96,165,250,0.35), 0 0 40px 16px rgba(96,165,250,0.20), 0 10px 30px rgba(59,130,246,0.18)"
-  : "0 6px 16px rgba(15, 23, 42, 0.08)",
+        boxShadow: isSelected
+          ? "0 0 0 4px rgba(59,130,246,0.25), 0 8px 24px rgba(59,130,246,0.2)"
+          : "0 4px 12px rgba(15, 23, 42, 0.06)",
+        transition: "all 0.15s ease",
       }}
       title={p.id}
     >
@@ -384,23 +386,7 @@ function NodeCard({
           {claimed ? "Claimed" : "Unclaimed"}
         </span>
 
-{isCenter ? (
-  <span
-    style={{
-      display: "inline-flex",
-      alignItems: "center",
-      borderRadius: 999,
-      padding: "3px 8px",
-      fontSize: 10,
-      fontWeight: 800,
-      background: "#dbeafe",
-      color: "#1d4ed8",
-      border: "1px solid #93c5fd",
-    }}
-  >
-    Selected
-  </span>
-) : null}
+
 
         {p.isPrivate ? (
           <span
