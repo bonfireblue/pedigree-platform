@@ -445,8 +445,8 @@ export default function PedigreePage() {
         return;
       }
 
-      // Store the public URL for direct access
-      setEditPhotoUrl(data.url);
+      // Store the pathname for serving via /api/file route
+      setEditPhotoUrl(data.pathname);
     } catch {
       setError("Photo upload failed");
     } finally {
@@ -857,7 +857,7 @@ export default function PedigreePage() {
                     >
                       {editPhotoUrl ? (
                         <img
-                          src={editPhotoUrl}
+                          src={`/api/file?pathname=${encodeURIComponent(editPhotoUrl)}`}
                           alt="Profile"
                           style={{ width: "100%", height: "100%", objectFit: "cover" }}
                         />

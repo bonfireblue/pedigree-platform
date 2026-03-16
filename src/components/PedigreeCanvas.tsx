@@ -310,7 +310,7 @@ useEffect(() => {
               >
                 {expandedPerson.photoUrl ? (
                   <img
-                    src={expandedPerson.photoUrl}
+                    src={`/api/file?pathname=${encodeURIComponent(expandedPerson.photoUrl)}`}
                     alt=""
                     style={{ width: "100%", height: "100%", objectFit: "cover" }}
                   />
@@ -535,7 +535,7 @@ function NodeCard({
         >
           {p.photoUrl ? (
             <img
-              src={p.photoUrl}
+              src={`/api/file?pathname=${encodeURIComponent(p.photoUrl)}`}
               alt=""
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />

@@ -39,13 +39,13 @@ export async function POST(request: NextRequest) {
     const ext = file.name.split(".").pop() || "jpg";
     const filename = `profile-photos/${me.id}/${Date.now()}.${ext}`;
 
-    // Upload to Blob storage (public access so everyone can view)
+    // Upload to Blob storage (private access - serve via /api/file route)
     const blob = await put(filename, file, {
-      access: "public",
+      access: "private",
     });
 
-    // Return the public URL directly
-    return NextResponse.json({ pathname: blob.pathname, url: blob.url });
+    // Return the pathname for serving via /api/file route
+    return NextResponse.json({ pathname: blob.pathname });
   } catch (error) {
     console.error("Upload error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
