@@ -441,6 +441,7 @@ useEffect(() => {
   );
 }
 
+// NodeCard component - renders individual person nodes
 function NodeCard({
   p,
   onClick,
