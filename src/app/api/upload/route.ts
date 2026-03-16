@@ -1,14 +1,13 @@
-// Upload API - Force rebuild March 16 2026 v2
+// Photo upload API v3 - March 16 2026
 import { put } from "@vercel/blob";
 import { type NextRequest, NextResponse } from "next/server";
 import { requireMe } from "@/lib/authz";
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
     const me = await requireMe();
     if (!me) {
-      return NextResponse.json({ error: "Unauthorized - please sign in again" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const formData = await request.formData();
@@ -18,38 +17,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    // Validate file type
     const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
     if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json(
-        { error: "Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid file type" }, { status: 400 });
     }
 
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024;
-    if (file.size > maxSize) {
-      return NextResponse.json(
-        { error: "File too large. Maximum size is 5MB." },
-        { status: 400 }
-      );
+    if (file.size > 5 * 1024 * 1024) {
+      return NextResponse.json({ error: "File too large (max 5MB)" }, { status: 400 });
     }
 
-    // Generate unique filename
     const ext = file.name.split(".").pop() || "jpg";
     const filename = `profile-photos/${me.id}/${Date.now()}.${ext}`;
 
-    // Upload to Blob storage (private access - serve via /api/file route)
-    const blob = await put(filename, file, {
-      access: "private",
-    });
+    // PRIVATE access for Blob storage
+    const blob = await put(filename, file, { access: "private" });
 
-    // Return the pathname for serving via /api/file route
     return NextResponse.json({ pathname: blob.pathname });
   } catch (error) {
     console.error("Upload error:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: `Upload failed: ${errorMessage}` }, { status: 500 });
+    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 }
