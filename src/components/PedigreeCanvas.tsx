@@ -302,6 +302,7 @@ function NodeCard({
   p?: {
     id: string;
     fullName?: string;
+    photoUrl?: string | null;
     claimedByUserId?: string | null;
     isPrivate?: boolean;
   };
@@ -355,19 +356,48 @@ function NodeCard({
       }}
       title={p.id}
     >
-      <div
-        style={{
-          fontWeight: 800,
-          fontSize: 14,
-          lineHeight: "18px",
-          color: "#111827",
-          marginBottom: 8,
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-        }}
-      >
-        {p.fullName?.trim() || "Unnamed"}
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        {/* Profile photo or initials */}
+        <div
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: "50%",
+            background: "#e2e8f0",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            overflow: "hidden",
+            flexShrink: 0,
+          }}
+        >
+          {p.photoUrl ? (
+            <img
+              src={`/api/file?pathname=${encodeURIComponent(p.photoUrl)}`}
+              alt=""
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            <span style={{ fontSize: 14, fontWeight: 700, color: "#94a3b8" }}>
+              {p.fullName?.trim()?.[0]?.toUpperCase() || "?"}
+            </span>
+          )}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              fontWeight: 800,
+              fontSize: 14,
+              lineHeight: "18px",
+              color: "#111827",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {p.fullName?.trim() || "Unnamed"}
+          </div>
+        </div>
       </div>
 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
         <span

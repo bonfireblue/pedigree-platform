@@ -34,6 +34,7 @@ type TreeApiResponse = {
 type PersonLite = {
   id: string;
   fullName: string;
+  photoUrl?: string | null;
   createdAt: string;
   isPrivate: boolean;
   claimedByUserId?: string | null;
@@ -163,6 +164,8 @@ export default function PedigreePage() {
   const [editOccupation, setEditOccupation] = useState("");
   const [editProudOf, setEditProudOf] = useState("");
   const [editInterests, setEditInterests] = useState("");
+  const [editPhotoUrl, setEditPhotoUrl] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -204,6 +207,10 @@ export default function PedigreePage() {
       setEditOccupation(detail.person.occupation ?? "");
       setEditProudOf(detail.person.proudOf ?? "");
       setEditInterests(detail.person.interests ?? "");
+      setEditPhotoUrl(detail.person.photoUrl ?? "");
+      
+      // Open sidebar on mobile when selecting a person
+      setSidebarOpen(true);
     } finally {
       setLoadingDetail(false);
     }
@@ -414,6 +421,38 @@ export default function PedigreePage() {
     }
   }
 
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingPhoto(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data?.error ?? "Photo upload failed");
+        return;
+      }
+
+      // Store the pathname for private blob access
+      setEditPhotoUrl(data.pathname);
+    } catch {
+      setError("Photo upload failed");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
+
   async function saveSelectedPerson() {
     if (!selectedId) return;
 
@@ -437,6 +476,7 @@ export default function PedigreePage() {
           occupation: editOccupation.trim() || null,
           proudOf: editProudOf.trim() || null,
           interests: editInterests.trim() || null,
+          photoUrl: editPhotoUrl || null,
         }),
       });
 
@@ -796,6 +836,62 @@ export default function PedigreePage() {
             ) : personDetail ? (
               <>
                 <div style={{ marginTop: 14, display: "grid", gap: 14 }}>
+                  {/* Profile Photo */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                    <div
+                      style={{
+                        width: 80,
+                        height: 80,
+                        borderRadius: "50%",
+                        background: "#e2e8f0",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        overflow: "hidden",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {editPhotoUrl ? (
+                        <img
+                          src={`/api/file?pathname=${encodeURIComponent(editPhotoUrl)}`}
+                          alt="Profile"
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        />
+                      ) : (
+                        <span style={{ fontSize: 32, color: "#94a3b8" }}>
+                          {editFirstName?.[0]?.toUpperCase() || editLastName?.[0]?.toUpperCase() || "?"}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label
+                        style={{
+                          display: "inline-block",
+                          padding: "8px 16px",
+                          borderRadius: 8,
+                          background: "#f1f5f9",
+                          color: "#334155",
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: uploadingPhoto ? "not-allowed" : "pointer",
+                          opacity: uploadingPhoto ? 0.6 : 1,
+                        }}
+                      >
+                        {uploadingPhoto ? "Uploading..." : editPhotoUrl ? "Change Photo" : "Upload Photo"}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/gif,image/webp"
+                          onChange={handlePhotoUpload}
+                          disabled={uploadingPhoto}
+                          style={{ display: "none" }}
+                        />
+                      </label>
+                      <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>
+                        JPEG, PNG, GIF, or WebP. Max 5MB.
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Name fields */}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                     <div>
