@@ -446,6 +446,7 @@ export default function PedigreePage() {
       }
 
       // Store the pathname for serving via /api/file route
+      console.log("[v0] Photo uploaded, setting editPhotoUrl to:", data.pathname);
       setEditPhotoUrl(data.pathname);
     } catch {
       setError("Photo upload failed");
@@ -460,6 +461,21 @@ export default function PedigreePage() {
     // Compute fullName from firstName + lastName
     const fullName = [editFirstName.trim(), editLastName.trim()].filter(Boolean).join(" ") || "Unnamed";
 
+    const saveData = {
+      firstName: editFirstName.trim() || null,
+      lastName: editLastName.trim() || null,
+      fullName,
+      birthDate: editBirthDate || null,
+      deathDate: editDeathDate || null,
+      grewUpLocation: editGrewUpLocation.trim() || null,
+      occupation: editOccupation.trim() || null,
+      proudOf: editProudOf.trim() || null,
+      interests: editInterests.trim() || null,
+      photoUrl: editPhotoUrl || null,
+    };
+    
+    console.log("[v0] Saving person data:", JSON.stringify(saveData));
+
     setEditBusy(true);
     setError(null);
 
@@ -468,18 +484,7 @@ export default function PedigreePage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          firstName: editFirstName.trim() || null,
-          lastName: editLastName.trim() || null,
-          fullName,
-          birthDate: editBirthDate || null,
-          deathDate: editDeathDate || null,
-          grewUpLocation: editGrewUpLocation.trim() || null,
-          occupation: editOccupation.trim() || null,
-          proudOf: editProudOf.trim() || null,
-          interests: editInterests.trim() || null,
-          photoUrl: editPhotoUrl || null,
-        }),
+        body: JSON.stringify(saveData),
       });
 
       const data = await res.json().catch(() => ({}));
