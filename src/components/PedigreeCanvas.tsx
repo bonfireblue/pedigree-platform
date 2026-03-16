@@ -599,18 +599,25 @@ function NodeCard({
         ) : null}
 
         {/* Expand button */}
-        <button
-          type="button"
+        <span
+          role="button"
+          tabIndex={0}
           onClick={(e) => {
             e.stopPropagation();
             onExpand?.();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              e.stopPropagation();
+              onExpand?.();
+            }
           }}
           style={{
             marginLeft: "auto",
             width: 24,
             height: 24,
             borderRadius: 6,
-            border: "none",
             background: "#f1f5f9",
             color: "#64748b",
             cursor: "pointer",
@@ -622,7 +629,7 @@ function NodeCard({
           title="View profile"
         >
           +
-        </button>
+        </span>
       </div>
     </div>
   );
