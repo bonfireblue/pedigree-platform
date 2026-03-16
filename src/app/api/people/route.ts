@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { sql } from "@/lib/neon-db";
 import { requireMe } from "@/lib/authz";
 import { rateLimit, clientKey } from "@/lib/rateLimit";
 import { readJson } from "@/lib/body";
@@ -13,42 +13,40 @@ function normalizeFullName(value: unknown): string | null {
 }
 
 async function getOrCreatePrimaryMembership(userId: string) {
-  const existing = await prisma.membership.findFirst({
-    where: { userId },
-    orderBy: { createdAt: "asc" },
-    select: {
-      familyGraphId: true,
-      role: true,
-    },
-  });
+  // Check for existing membership
+  const existingRows = await sql`
+    SELECT "familyGraphId", role 
+    FROM "Membership" 
+    WHERE "userId" = ${userId} 
+    ORDER BY "createdAt" ASC 
+    LIMIT 1
+  `;
 
-  if (existing) return existing;
+  if (existingRows.length > 0) {
+    return {
+      familyGraphId: existingRows[0].familyGraphId,
+      role: existingRows[0].role,
+    };
+  }
 
-  const created = await prisma.$transaction(async (tx) => {
-    const graph = await tx.familyGraph.create({
-      data: {
-        name: "My Family Graph",
-        createdById: userId,
-      },
-      select: { id: true },
-    });
+  // Create new graph and membership
+  const graphId = crypto.randomUUID();
+  const membershipId = crypto.randomUUID();
 
-    const membership = await tx.membership.create({
-      data: {
-        userId,
-        familyGraphId: graph.id,
-        role: "FOUNDER",
-      },
-      select: {
-        familyGraphId: true,
-        role: true,
-      },
-    });
+  await sql`
+    INSERT INTO "FamilyGraph" (id, name, "createdById", "createdAt", "updatedAt")
+    VALUES (${graphId}, 'My Family Graph', ${userId}, NOW(), NOW())
+  `;
 
-    return membership;
-  });
+  await sql`
+    INSERT INTO "Membership" (id, "userId", "familyGraphId", role, "createdAt", "updatedAt")
+    VALUES (${membershipId}, ${userId}, ${graphId}, 'FOUNDER', NOW(), NOW())
+  `;
 
-  return created;
+  return {
+    familyGraphId: graphId,
+    role: "FOUNDER",
+  };
 }
 
 export async function GET(req: Request) {
@@ -68,18 +66,17 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
     }
 
-    const membership = await prisma.membership.findFirst({
-      where: { userId: me.id },
-      orderBy: { createdAt: "asc" },
-      select: {
-        familyGraphId: true,
-        role: true,
-      },
-    });
+    const membershipRows = await sql`
+      SELECT "familyGraphId", role 
+      FROM "Membership" 
+      WHERE "userId" = ${me.id} 
+      ORDER BY "createdAt" ASC 
+      LIMIT 1
+    `;
 
     // Important UX change:
     // A brand new user should see an empty list, not a hard error.
-    if (!membership) {
+    if (membershipRows.length === 0) {
       return NextResponse.json({
         people: [],
         familyGraphId: null,
@@ -87,26 +84,21 @@ export async function GET(req: Request) {
       });
     }
 
-    const people = await prisma.person.findMany({
-      where: {
-        familyGraphId: membership.familyGraphId,
-        deletedAt: null,
-      },
-      orderBy: [{ createdAt: "asc" }],
-      select: {
-        id: true,
-        fullName: true,
-        createdAt: true,
-        isPrivate: true,
-        claimedByUserId: true,
-      },
-    });
+    const membership = membershipRows[0];
+
+    const people = await sql`
+      SELECT id, "fullName", "createdAt", "isPrivate", "claimedByUserId"
+      FROM "Person"
+      WHERE "familyGraphId" = ${membership.familyGraphId}
+        AND "deletedAt" IS NULL
+      ORDER BY "createdAt" ASC
+    `;
 
     return NextResponse.json({
       people: people.map((p) => ({
         id: p.id,
         fullName: p.fullName,
-        createdAt: p.createdAt.toISOString(),
+        createdAt: new Date(p.createdAt).toISOString(),
         isPrivate: p.isPrivate,
         claimedByUserId: p.claimedByUserId,
       })),
@@ -152,29 +144,27 @@ export async function POST(req: Request) {
     // If the user has no graph yet, bootstrap one automatically.
     const membership = await getOrCreatePrimaryMembership(me.id);
 
-    const person = await prisma.person.create({
-      data: {
-        fullName,
-        isPrivate,
-        createdById: me.id,
-        familyGraphId: membership.familyGraphId,
-      },
-      select: {
-        id: true,
-        fullName: true,
-        createdAt: true,
-        isPrivate: true,
-        claimedByUserId: true,
-        familyGraphId: true,
-      },
-    });
+    const personId = crypto.randomUUID();
+
+    await sql`
+      INSERT INTO "Person" (id, "fullName", "isPrivate", "createdById", "familyGraphId", "createdAt", "updatedAt")
+      VALUES (${personId}, ${fullName}, ${isPrivate}, ${me.id}, ${membership.familyGraphId}, NOW(), NOW())
+    `;
+
+    const personRows = await sql`
+      SELECT id, "fullName", "createdAt", "isPrivate", "claimedByUserId", "familyGraphId"
+      FROM "Person"
+      WHERE id = ${personId}
+    `;
+
+    const person = personRows[0];
 
     return NextResponse.json(
       {
         person: {
           id: person.id,
           fullName: person.fullName,
-          createdAt: person.createdAt.toISOString(),
+          createdAt: new Date(person.createdAt).toISOString(),
           isPrivate: person.isPrivate,
           claimedByUserId: person.claimedByUserId,
           familyGraphId: person.familyGraphId,
