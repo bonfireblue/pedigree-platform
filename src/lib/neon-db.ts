@@ -2,6 +2,8 @@ import { neon } from "@neondatabase/serverless";
 
 const DATABASE_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL || "";
 
+console.log("[v0] DATABASE_URL available:", !!DATABASE_URL, "length:", DATABASE_URL.length);
+
 export const sql = neon(DATABASE_URL);
 
 // User operations

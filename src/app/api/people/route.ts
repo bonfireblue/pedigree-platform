@@ -112,6 +112,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  console.log("[v0] POST /api/people started");
   try {
     const lim = rateLimit({
       key: `people_post:${clientKey(req)}`,
@@ -174,7 +175,8 @@ export async function POST(req: Request) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("POST /api/people failed", error);
-    return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
+    console.error("[v0] POST /api/people failed", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: `INTERNAL_SERVER_ERROR: ${errorMessage}` }, { status: 500 });
   }
 }
