@@ -1,3 +1,4 @@
+// Upload API - Force rebuild March 16 2026 v2
 import { put } from "@vercel/blob";
 import { type NextRequest, NextResponse } from "next/server";
 import { requireMe } from "@/lib/authz";

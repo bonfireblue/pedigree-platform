@@ -16,6 +16,7 @@ type Viewport = {
   ty: number;
 };
 
+// Main PedigreeCanvas component - Updated March 16 2026
 export function PedigreeCanvas({
   data,
   selectedId,
@@ -27,7 +28,6 @@ export function PedigreeCanvas({
 
   const layout = useMemo(() => {
     if (!data) return null;
-
     return layoutPedigree({
       data,
       options: {
@@ -47,7 +47,7 @@ export function PedigreeCanvas({
   }, [data]);
 
   const svgRef = useRef<SVGSVGElement | null>(null);
-const animRef = useRef<number | null>(null);
+  const animRef = useRef<number | null>(null);
   const [vp, setVp] = useState<Viewport>({ k: 1, tx: 0, ty: 0 });
   const [expandedPersonId, setExpandedPersonId] = useState<string | null>(null);
 
@@ -80,66 +80,53 @@ const animRef = useRef<number | null>(null);
   function clientToWorld(clientX: number, clientY: number, v: Viewport) {
     const rect = getSvgClientRect();
     if (!rect) return { x: 0, y: 0 };
-
     const sx = clientX - rect.left;
     const sy = clientY - rect.top;
-
     return {
       x: (sx - v.tx) / v.k,
       y: (sy - v.ty) / v.k,
     };
   }
 
-useEffect(() => {
-  if (!layout || !svgRef.current) return;
-
-  if (animRef.current !== null) {
-    cancelAnimationFrame(animRef.current);
-    animRef.current = null;
-  }
-
-  const targetId = selectedId || layout.centerId;
-  const targetNode = layout.nodes.find((n) => n.id === targetId);
-  if (!targetNode) return;
-
-  const rect = svgRef.current.getBoundingClientRect();
-  const w = Math.max(1, rect.width);
-  const h = Math.max(1, rect.height);
-
-  // Keep a comfortable zoom instead of fitting the whole pedigree.
-  // If already reasonably zoomed in, preserve it.
-  const targetK = clamp(vp.k < 0.78 ? 0.78 : vp.k, 0.78, 1.05);
-
-  const nodeCx = targetNode.x + NODE_W / 2;
-  const nodeCy = targetNode.y + NODE_H / 2;
-
-  const targetTx = w / 2 - nodeCx * targetK;
-  const targetTy = h / 2 - nodeCy * targetK;
-
-  const start = { ...vp };
-  const end = { k: targetK, tx: targetTx, ty: targetTy };
-  const duration = 320;
-  const startTime = performance.now();
-
-  const animate = (now: number) => {
-    const t = Math.min(1, (now - startTime) / duration);
-    const eased = 1 - Math.pow(1 - t, 3);
-
-    setVp({
-      k: start.k + (end.k - start.k) * eased,
-      tx: start.tx + (end.tx - start.tx) * eased,
-      ty: start.ty + (end.ty - start.ty) * eased,
-    });
-
-    if (t < 1) {
-      animRef.current = requestAnimationFrame(animate);
-    } else {
+  useEffect(() => {
+    if (!layout || !svgRef.current) return;
+    if (animRef.current !== null) {
+      cancelAnimationFrame(animRef.current);
       animRef.current = null;
     }
-  };
+    const targetId = selectedId || layout.centerId;
+    const targetNode = layout.nodes.find((n) => n.id === targetId);
+    if (!targetNode) return;
 
-  animRef.current = requestAnimationFrame(animate);
-}, [layout, selectedId, focusKey]);
+    const rect = svgRef.current.getBoundingClientRect();
+    const w = Math.max(1, rect.width);
+    const h = Math.max(1, rect.height);
+    const targetK = clamp(vp.k < 0.78 ? 0.78 : vp.k, 0.78, 1.05);
+    const nodeCx = targetNode.x + NODE_W / 2;
+    const nodeCy = targetNode.y + NODE_H / 2;
+    const targetTx = w / 2 - nodeCx * targetK;
+    const targetTy = h / 2 - nodeCy * targetK;
+    const start = { ...vp };
+    const end = { k: targetK, tx: targetTx, ty: targetTy };
+    const duration = 320;
+    const startTime = performance.now();
+
+    const animate = (now: number) => {
+      const t = Math.min(1, (now - startTime) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setVp({
+        k: start.k + (end.k - start.k) * eased,
+        tx: start.tx + (end.tx - start.tx) * eased,
+        ty: start.ty + (end.ty - start.ty) * eased,
+      });
+      if (t < 1) {
+        animRef.current = requestAnimationFrame(animate);
+      } else {
+        animRef.current = null;
+      }
+    };
+    animRef.current = requestAnimationFrame(animate);
+  }, [layout, selectedId, focusKey]);
 
   function handleSelectPerson(id: string) {
     if (typeof onSelectPerson === "function") {
@@ -150,30 +137,22 @@ useEffect(() => {
   function onWheel(e: React.WheelEvent<SVGSVGElement>) {
     e.preventDefault();
     if (!svgRef.current) return;
-
     const factor = e.deltaY > 0 ? 0.92 : 1.08;
-
     setVp((prev) => {
       const k2 = clamp(prev.k * factor, 0.1, 4);
-
       const before = clientToWorld(e.clientX, e.clientY, prev);
       const after = clientToWorld(e.clientX, e.clientY, { ...prev, k: k2 });
-
       const tx2 = prev.tx + (after.x - before.x) * k2;
       const ty2 = prev.ty + (after.y - before.y) * k2;
-
       return { k: k2, tx: tx2, ty: ty2 };
     });
   }
 
   function onPointerDown(e: React.PointerEvent<SVGSVGElement>) {
     if (e.button !== 0) return;
-
     const el = svgRef.current;
     if (!el) return;
-
     el.setPointerCapture(e.pointerId);
-
     dragRef.current.active = true;
     dragRef.current.pointerId = e.pointerId;
     dragRef.current.startClientX = e.clientX;
@@ -184,10 +163,8 @@ useEffect(() => {
 
   function onPointerMove(e: React.PointerEvent<SVGSVGElement>) {
     if (!dragRef.current.active) return;
-
     const dx = e.clientX - dragRef.current.startClientX;
     const dy = e.clientY - dragRef.current.startClientY;
-
     setVp((prev) => ({
       ...prev,
       tx: dragRef.current.startTx + dx,
@@ -197,13 +174,10 @@ useEffect(() => {
 
   function onPointerUp(e: React.PointerEvent<SVGSVGElement>) {
     if (!dragRef.current.active) return;
-
     dragRef.current.active = false;
     dragRef.current.pointerId = null;
-
     const el = svgRef.current;
     if (!el) return;
-
     try {
       el.releasePointerCapture(e.pointerId);
     } catch {
@@ -222,7 +196,7 @@ useEffect(() => {
           background: "#ffffff",
         }}
       >
-        Loading pedigree…
+        Loading pedigree...
       </div>
     );
   }
@@ -242,7 +216,6 @@ useEffect(() => {
         position: "relative",
       }}
     >
-      {/* Expanded Profile Modal */}
       {expandedPerson && (
         <div
           style={{
@@ -266,10 +239,10 @@ useEffect(() => {
               maxHeight: "80vh",
               overflow: "auto",
               boxShadow: "0 20px 50px rgba(0,0,0,0.2)",
+              position: "relative",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Close button */}
             <button
               type="button"
               onClick={() => setExpandedPersonId(null)}
@@ -292,8 +265,6 @@ useEffect(() => {
             >
               x
             </button>
-
-            {/* Profile content */}
             <div style={{ textAlign: "center", marginBottom: 20 }}>
               <div
                 style={{
@@ -323,8 +294,6 @@ useEffect(() => {
               <h2 style={{ fontSize: 24, fontWeight: 700, color: "#111827", margin: 0 }}>
                 {expandedPerson.fullName?.trim() || "Unnamed"}
               </h2>
-              
-              {/* Life dates */}
               {(expandedPerson.birthDate || expandedPerson.deathDate) && (
                 <p style={{ fontSize: 14, color: "#64748b", margin: "8px 0 0" }}>
                   {expandedPerson.birthDate ? new Date(expandedPerson.birthDate).getFullYear() : "?"}
@@ -333,50 +302,29 @@ useEffect(() => {
                 </p>
               )}
             </div>
-
-            {/* Info sections */}
             <div style={{ display: "grid", gap: 16 }}>
               {expandedPerson.grewUpLocation && (
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4 }}>
-                    Grew up in
-                  </div>
-                  <div style={{ fontSize: 15, color: "#111827" }}>
-                    {expandedPerson.grewUpLocation}
-                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4 }}>Grew up in</div>
+                  <div style={{ fontSize: 15, color: "#111827" }}>{expandedPerson.grewUpLocation}</div>
                 </div>
               )}
-
               {expandedPerson.occupation && (
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4 }}>
-                    Occupation
-                  </div>
-                  <div style={{ fontSize: 15, color: "#111827" }}>
-                    {expandedPerson.occupation}
-                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4 }}>Occupation</div>
+                  <div style={{ fontSize: 15, color: "#111827" }}>{expandedPerson.occupation}</div>
                 </div>
               )}
-
               {expandedPerson.interests && (
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4 }}>
-                    Hobbies / Interests
-                  </div>
-                  <div style={{ fontSize: 15, color: "#111827" }}>
-                    {expandedPerson.interests}
-                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4 }}>Hobbies / Interests</div>
+                  <div style={{ fontSize: 15, color: "#111827" }}>{expandedPerson.interests}</div>
                 </div>
               )}
-
               {expandedPerson.proudOf && (
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4 }}>
-                    Most proud of
-                  </div>
-                  <div style={{ fontSize: 15, color: "#111827", lineHeight: 1.5 }}>
-                    {expandedPerson.proudOf}
-                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4 }}>Most proud of</div>
+                  <div style={{ fontSize: 15, color: "#111827", lineHeight: 1.5 }}>{expandedPerson.proudOf}</div>
                 </div>
               )}
             </div>
@@ -408,27 +356,18 @@ useEffect(() => {
               />
             ))}
           </g>
-
           <g>
             {layout.nodes.map((n) => {
               const person = personById.get(n.id);
               const isSelected = selectedId ? n.id === selectedId : n.id === layout.centerId;
-
               return (
-                <foreignObject
-  key={n.id}
-  x={n.x}
-  y={n.y}
-  width={NODE_W}
-  height={NODE_H}
-  style={{ overflow: "visible" }}
->
+                <foreignObject key={n.id} x={n.x} y={n.y} width={NODE_W} height={NODE_H} style={{ overflow: "visible" }}>
                   <div style={{ width: NODE_W, height: NODE_H, overflow: "visible" }}>
-                    <NodeCard
-                      p={person}
-                      onClick={() => handleSelectPerson(n.id)}
+                    <PersonNodeCard
+                      person={person}
+                      onSelect={() => handleSelectPerson(n.id)}
                       onExpand={() => setExpandedPersonId(n.id)}
-                      isSelected={isSelected}
+                      selected={isSelected}
                     />
                   </div>
                 </foreignObject>
@@ -441,14 +380,14 @@ useEffect(() => {
   );
 }
 
-// NodeCard component - renders individual person nodes in the pedigree tree
-function NodeCard({
-  p,
-  onClick,
+// PersonNodeCard - individual person node (renamed to force cache invalidation)
+function PersonNodeCard({
+  person,
+  onSelect,
   onExpand,
-  isSelected,
+  selected,
 }: {
-  p?: {
+  person?: {
     id: string;
     fullName?: string;
     photoUrl?: string | null;
@@ -461,11 +400,11 @@ function NodeCard({
     claimedByUserId?: string | null;
     isPrivate?: boolean;
   };
-  onClick?: () => void;
+  onSelect?: () => void;
   onExpand?: () => void;
-  isSelected?: boolean;
+  selected?: boolean;
 }) {
-  if (!p) {
+  if (!person) {
     return (
       <div
         style={{
@@ -485,7 +424,7 @@ function NodeCard({
     );
   }
 
-  const claimed = Boolean(p.claimedByUserId);
+  const claimed = Boolean(person.claimedByUserId);
 
   return (
     <div
@@ -493,12 +432,12 @@ function NodeCard({
       tabIndex={0}
       onClick={(e) => {
         e.stopPropagation();
-        onClick?.();
+        onSelect?.();
       }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          onClick?.();
+          onSelect?.();
         }
       }}
       onPointerDown={(e) => e.stopPropagation()}
@@ -506,21 +445,20 @@ function NodeCard({
         width: "100%",
         height: "100%",
         borderRadius: 14,
-        border: isSelected ? "3px solid #3b82f6" : "1px solid #d1d5db",
-        background: isSelected ? "#eff6ff" : "#ffffff",
+        border: selected ? "3px solid #3b82f6" : "1px solid #d1d5db",
+        background: selected ? "#eff6ff" : "#ffffff",
         color: "#111827",
         padding: 10,
         textAlign: "left",
         cursor: "pointer",
-        boxShadow: isSelected
+        boxShadow: selected
           ? "0 0 0 4px rgba(59,130,246,0.25), 0 8px 24px rgba(59,130,246,0.2)"
           : "0 4px 12px rgba(15, 23, 42, 0.06)",
         transition: "all 0.15s ease",
       }}
-      title={p.id}
+      title={person.id}
     >
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-        {/* Profile photo or initials */}
         <div
           style={{
             width: 36,
@@ -534,15 +472,15 @@ function NodeCard({
             flexShrink: 0,
           }}
         >
-          {p.photoUrl ? (
+          {person.photoUrl ? (
             <img
-              src={`/api/file?pathname=${encodeURIComponent(p.photoUrl)}`}
+              src={`/api/file?pathname=${encodeURIComponent(person.photoUrl)}`}
               alt=""
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
           ) : (
             <span style={{ fontSize: 14, fontWeight: 700, color: "#94a3b8" }}>
-              {p.fullName?.trim()?.[0]?.toUpperCase() || "?"}
+              {person.fullName?.trim()?.[0]?.toUpperCase() || "?"}
             </span>
           )}
         </div>
@@ -558,11 +496,11 @@ function NodeCard({
               textOverflow: "ellipsis",
             }}
           >
-            {p.fullName?.trim() || "Unnamed"}
+            {person.fullName?.trim() || "Unnamed"}
           </div>
         </div>
       </div>
-<div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginTop: 6 }}>
         <span
           style={{
             display: "inline-flex",
@@ -578,10 +516,7 @@ function NodeCard({
         >
           {claimed ? "Claimed" : "Unclaimed"}
         </span>
-
-
-
-        {p.isPrivate ? (
+        {person.isPrivate && (
           <span
             style={{
               display: "inline-flex",
@@ -597,9 +532,7 @@ function NodeCard({
           >
             Private
           </span>
-        ) : null}
-
-        {/* Expand button */}
+        )}
         <span
           role="button"
           tabIndex={0}
