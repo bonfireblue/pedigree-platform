@@ -461,23 +461,6 @@ export default function PedigreePage() {
     // Compute fullName from firstName + lastName
     const fullName = [editFirstName.trim(), editLastName.trim()].filter(Boolean).join(" ") || "Unnamed";
 
-    const payload = {
-      firstName: editFirstName.trim() || null,
-      lastName: editLastName.trim() || null,
-      fullName,
-      birthDate: editBirthDate || null,
-      deathDate: editDeathDate || null,
-      grewUpLocation: editGrewUpLocation.trim() || null,
-      occupation: editOccupation.trim() || null,
-      proudOf: editProudOf.trim() || null,
-      interests: editInterests.trim() || null,
-      photoUrl: editPhotoUrl || null,
-    };
-    console.log("[v0] Save payload:", JSON.stringify(payload));
-    console.log("[v0] editPhotoUrl state:", editPhotoUrl);
-    console.log("[v0] editGrewUpLocation state:", editGrewUpLocation);
-    console.log("[v0] editBirthDate state:", editBirthDate);
-
     setEditBusy(true);
     setError(null);
 
@@ -486,7 +469,18 @@ export default function PedigreePage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          firstName: editFirstName.trim() || null,
+          lastName: editLastName.trim() || null,
+          fullName,
+          birthDate: editBirthDate || null,
+          deathDate: editDeathDate || null,
+          grewUpLocation: editGrewUpLocation.trim() || null,
+          occupation: editOccupation.trim() || null,
+          proudOf: editProudOf.trim() || null,
+          interests: editInterests.trim() || null,
+          photoUrl: editPhotoUrl || null,
+        }),
       });
 
       const data = await res.json().catch(() => ({}));

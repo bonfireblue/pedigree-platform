@@ -212,8 +212,6 @@ export async function PATCH(req: Request, ctx: Ctx) {
     }
 
     const data = buildPersonPatch(parsed.json);
-    console.log("[v0-march16] PATCH incoming body:", JSON.stringify(parsed.json));
-    console.log("[v0-march16] PATCH processed data:", JSON.stringify(data));
 
     // Build dynamic SET clause
     const setClauses: string[] = [];
@@ -226,15 +224,10 @@ export async function PATCH(req: Request, ctx: Ctx) {
       paramIndex++;
     }
 
-    console.log("[v0-march16] SET clauses:", setClauses);
-    console.log("[v0-march16] Values:", JSON.stringify(values));
-
     if (setClauses.length > 0) {
       values.push(id);
       const query = `UPDATE "Person" SET ${setClauses.join(", ")} WHERE id = $${paramIndex}`;
-      console.log("[v0-march16] Query:", query);
       await sql.unsafe(query, values);
-      console.log("[v0-march16] Update executed");
     }
 
     const updatedRows = await sql`
