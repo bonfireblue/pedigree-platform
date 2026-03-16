@@ -30,16 +30,20 @@ export default function SignUpPage() {
     setLoading(true);
 
     try {
+      console.log("[v0] Submitting registration for:", email);
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
+      console.log("[v0] Registration response status:", res.status);
       if (!res.ok) {
         const data = await res.json().catch(() => null);
+        console.log("[v0] Registration error data:", data);
         throw new Error(data?.error || "Sign up failed");
       }
+      console.log("[v0] Registration successful, attempting auto sign-in");
 
       // Auto sign-in after successful registration
       const result = await signIn("credentials", {
