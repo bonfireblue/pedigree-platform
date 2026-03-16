@@ -11,9 +11,13 @@ type NodeRow = {
   createdAt: string;
   bio: string | null;
   location: string | null;
+  grewUpLocation: string | null;
   birthDate: string | null;
   deathDate: string | null;
   photoUrl: string | null;
+  occupation: string | null;
+  proudOf: string | null;
+  interests: string | null;
   claimedByUserId: string | null;
   familyGraphId: string;
 };
@@ -176,7 +180,8 @@ export async function GET(req: Request) {
 
       const candidateRows = await sql`
         SELECT id, "fullName", "isPrivate", "createdById", "createdAt", bio, location,
-               "birthDate", "deathDate", "photoUrl", "claimedByUserId", "familyGraphId"
+               "grewUpLocation", "birthDate", "deathDate", "photoUrl", occupation,
+               "proudOf", interests, "claimedByUserId", "familyGraphId"
         FROM "Person"
         WHERE id = ANY(${cappedCandidateIds})
           AND "familyGraphId" = ${familyGraphId}
@@ -211,7 +216,8 @@ export async function GET(req: Request) {
     const visitedArray = Array.from(visited);
     const nodesAll = await sql`
       SELECT id, "fullName", "isPrivate", "createdById", "createdAt", bio, location,
-             "birthDate", "deathDate", "photoUrl", "claimedByUserId", "familyGraphId"
+             "grewUpLocation", "birthDate", "deathDate", "photoUrl", occupation,
+             "proudOf", interests, "claimedByUserId", "familyGraphId"
       FROM "Person"
       WHERE id = ANY(${visitedArray})
         AND "familyGraphId" = ${familyGraphId}
@@ -252,9 +258,13 @@ export async function GET(req: Request) {
         createdAt: n.createdAt,
         bio: n.bio,
         location: n.location,
+        grewUpLocation: n.grewUpLocation,
         birthDate: n.birthDate,
         deathDate: n.deathDate,
         photoUrl: n.photoUrl,
+        occupation: n.occupation,
+        proudOf: n.proudOf,
+        interests: n.interests,
         claimedByUserId: n.claimedByUserId,
       })),
       edges: {

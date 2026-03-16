@@ -49,6 +49,7 @@ export function PedigreeCanvas({
   const svgRef = useRef<SVGSVGElement | null>(null);
 const animRef = useRef<number | null>(null);
   const [vp, setVp] = useState<Viewport>({ k: 1, tx: 0, ty: 0 });
+  const [expandedPersonId, setExpandedPersonId] = useState<string | null>(null);
 
   const dragRef = useRef<{
     active: boolean;
@@ -226,6 +227,8 @@ useEffect(() => {
     );
   }
 
+  const expandedPerson = expandedPersonId ? personById.get(expandedPersonId) : null;
+
   return (
     <div
       style={{
@@ -236,8 +239,151 @@ useEffect(() => {
         borderRadius: 12,
         overflow: "hidden",
         background: "#ffffff",
+        position: "relative",
       }}
     >
+      {/* Expanded Profile Modal */}
+      {expandedPerson && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 50,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.5)",
+          }}
+          onClick={() => setExpandedPersonId(null)}
+        >
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: 16,
+              padding: 24,
+              maxWidth: 400,
+              width: "90%",
+              maxHeight: "80vh",
+              overflow: "auto",
+              boxShadow: "0 20px 50px rgba(0,0,0,0.2)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={() => setExpandedPersonId(null)}
+              style={{
+                position: "absolute",
+                top: 16,
+                right: 16,
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                border: "none",
+                background: "#f1f5f9",
+                color: "#64748b",
+                cursor: "pointer",
+                fontSize: 18,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              x
+            </button>
+
+            {/* Profile content */}
+            <div style={{ textAlign: "center", marginBottom: 20 }}>
+              <div
+                style={{
+                  width: 120,
+                  height: 120,
+                  borderRadius: "50%",
+                  background: "#e2e8f0",
+                  margin: "0 auto 16px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  overflow: "hidden",
+                }}
+              >
+                {expandedPerson.photoUrl ? (
+                  <img
+                    src={expandedPerson.photoUrl}
+                    alt=""
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 48, fontWeight: 700, color: "#94a3b8" }}>
+                    {expandedPerson.fullName?.trim()?.[0]?.toUpperCase() || "?"}
+                  </span>
+                )}
+              </div>
+              <h2 style={{ fontSize: 24, fontWeight: 700, color: "#111827", margin: 0 }}>
+                {expandedPerson.fullName?.trim() || "Unnamed"}
+              </h2>
+              
+              {/* Life dates */}
+              {(expandedPerson.birthDate || expandedPerson.deathDate) && (
+                <p style={{ fontSize: 14, color: "#64748b", margin: "8px 0 0" }}>
+                  {expandedPerson.birthDate ? new Date(expandedPerson.birthDate).getFullYear() : "?"}
+                  {" - "}
+                  {expandedPerson.deathDate ? new Date(expandedPerson.deathDate).getFullYear() : "Present"}
+                </p>
+              )}
+            </div>
+
+            {/* Info sections */}
+            <div style={{ display: "grid", gap: 16 }}>
+              {expandedPerson.grewUpLocation && (
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4 }}>
+                    Grew up in
+                  </div>
+                  <div style={{ fontSize: 15, color: "#111827" }}>
+                    {expandedPerson.grewUpLocation}
+                  </div>
+                </div>
+              )}
+
+              {expandedPerson.occupation && (
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4 }}>
+                    Occupation
+                  </div>
+                  <div style={{ fontSize: 15, color: "#111827" }}>
+                    {expandedPerson.occupation}
+                  </div>
+                </div>
+              )}
+
+              {expandedPerson.interests && (
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4 }}>
+                    Hobbies / Interests
+                  </div>
+                  <div style={{ fontSize: 15, color: "#111827" }}>
+                    {expandedPerson.interests}
+                  </div>
+                </div>
+              )}
+
+              {expandedPerson.proudOf && (
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4 }}>
+                    Most proud of
+                  </div>
+                  <div style={{ fontSize: 15, color: "#111827", lineHeight: 1.5 }}>
+                    {expandedPerson.proudOf}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <svg
         ref={svgRef}
         width="100%"
@@ -281,6 +427,7 @@ useEffect(() => {
                     <NodeCard
                       p={person}
                       onClick={() => handleSelectPerson(n.id)}
+                      onExpand={() => setExpandedPersonId(n.id)}
                       isSelected={isSelected}
                     />
                   </div>
@@ -297,16 +444,24 @@ useEffect(() => {
 function NodeCard({
   p,
   onClick,
+  onExpand,
   isSelected,
 }: {
   p?: {
     id: string;
     fullName?: string;
     photoUrl?: string | null;
+    birthDate?: string | null;
+    deathDate?: string | null;
+    grewUpLocation?: string | null;
+    occupation?: string | null;
+    proudOf?: string | null;
+    interests?: string | null;
     claimedByUserId?: string | null;
     isPrivate?: boolean;
   };
   onClick?: () => void;
+  onExpand?: () => void;
   isSelected?: boolean;
 }) {
   if (!p) {
@@ -373,7 +528,7 @@ function NodeCard({
         >
           {p.photoUrl ? (
             <img
-              src={`/api/file?pathname=${encodeURIComponent(p.photoUrl)}`}
+              src={p.photoUrl}
               alt=""
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
@@ -435,6 +590,32 @@ function NodeCard({
             Private
           </span>
         ) : null}
+
+        {/* Expand button */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onExpand?.();
+          }}
+          style={{
+            marginLeft: "auto",
+            width: 24,
+            height: 24,
+            borderRadius: 6,
+            border: "none",
+            background: "#f1f5f9",
+            color: "#64748b",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 14,
+          }}
+          title="View profile"
+        >
+          +
+        </button>
       </div>
     </button>
   );

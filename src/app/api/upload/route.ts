@@ -4,15 +4,18 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
+  console.log("[v0] Upload request received");
   try {
     // Check authentication
     const session = await getServerSession(authOptions);
+    console.log("[v0] Session:", session?.user?.id ? "authenticated" : "not authenticated");
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
+    console.log("[v0] File received:", file?.name, file?.type, file?.size);
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -40,15 +43,18 @@ export async function POST(request: NextRequest) {
     const ext = file.name.split(".").pop() || "jpg";
     const filename = `profile-photos/${session.user.id}/${Date.now()}.${ext}`;
 
-    // Upload to Blob storage (private access)
+    // Upload to Blob storage (public access so everyone can view)
+    console.log("[v0] Uploading to blob storage:", filename);
     const blob = await put(filename, file, {
-      access: "private",
+      access: "public",
     });
+    console.log("[v0] Upload successful:", blob.url);
 
-    // Return the pathname for private blob access
+    // Return the public URL directly
     return NextResponse.json({ pathname: blob.pathname, url: blob.url });
   } catch (error) {
-    console.error("Upload error:", error);
-    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+    console.error("[v0] Upload error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: `Upload failed: ${errorMessage}` }, { status: 500 });
   }
 }
