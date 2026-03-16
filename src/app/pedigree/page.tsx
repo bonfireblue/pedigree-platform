@@ -124,6 +124,7 @@ export default function PedigreePage() {
   }, []);
 
   const [treeData, setTreeData] = useState<TreeApiResponse | null>(null);
+  const [currentCenterId, setCurrentCenterId] = useState<string>(initialCenterId);
   const [selectedId, setSelectedId] = useState<string>(initialCenterId);
   const [focusKey, setFocusKey] = useState(0);
   const [personDetail, setPersonDetail] = useState<PersonDetail | null>(null);
@@ -199,9 +200,11 @@ export default function PedigreePage() {
           return;
         }
 
+        setCurrentCenterId(id);
         setSelectedId(id);
         setTreeData(data);
         syncUrl(id);
+        setFocusKey((v) => v + 1);
         await loadPersonDetail(id);
       } finally {
         setLoadingTree(false);
@@ -216,16 +219,16 @@ export default function PedigreePage() {
     }
   }, [initialCenterId, loadTree]);
 
-  const selectPersonInCurrentTree = useCallback(
-  async (id: string) => {
-    setSelectedId(id);
-    setError(null);
-    syncUrl(id);
-    setFocusKey((v) => v + 1);
-    await loadPersonDetail(id);
-  },
-  [loadPersonDetail, syncUrl]
-);
+    const selectPersonInCurrentTree = useCallback(
+    async (id: string) => {
+      setSelectedId(id);
+      setError(null);
+      setFocusKey((v) => v + 1);
+      await loadPersonDetail(id);
+    },
+    [loadPersonDetail]
+  );
+
   const runGlobalSearch = useCallback(
     async (q: string) => {
       if (!selectedId || !q.trim()) {
@@ -560,7 +563,7 @@ export default function PedigreePage() {
                         onClick={() => {
                           setSearchQuery("");
                           setSearchOpen(false);
-                          void loadTree(r.id);
+                          void selectPersonInCurrentTree(r.id);
                         }}
                         style={{
   width: "100%",
@@ -587,9 +590,9 @@ export default function PedigreePage() {
               <button
                 type="button"
                 onClick={() => {
-  if (!selectedId) return;
-  setFocusKey((v) => v + 1);
-}}
+                  if (!selectedId) return;
+                  void loadTree(selectedId);
+                }}
                 disabled={!selectedId}
                 style={actionButtonStyle(false)}
               >
@@ -633,7 +636,7 @@ export default function PedigreePage() {
   selectedId={selectedId}
   focusKey={focusKey}
   onSelectPerson={(id) => {
-    void loadTree(id);
+    void selectPersonInCurrentTree(id);
   }}
 />
 
@@ -977,19 +980,19 @@ export default function PedigreePage() {
             <RelationshipSection
               title="Parents"
               people={personDetail?.parents ?? []}
-              onSelect={(id) => void loadTree(id)}
+              onSelect={(id) => void selectPersonInCurrentTree(id)}
             />
 
             <RelationshipSection
               title="Spouses"
               people={personDetail?.spouses ?? []}
-              onSelect={(id) => void loadTree(id)}
+              onSelect={(id) => void selectPersonInCurrentTree(id)}
             />
 
             <RelationshipSection
               title="Children"
               people={personDetail?.children ?? []}
-              onSelect={(id) => void loadTree(id)}
+              onSelect={(id) => void selectPersonInCurrentTree(id)}
             />
           </div>
         </aside>
