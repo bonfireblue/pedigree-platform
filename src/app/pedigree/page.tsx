@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import { PedigreeCanvas } from "@/components/PedigreeCanvas";
+import TreeCanvas from "@/components/TreeCanvas";
 
 type TreeApiNode = {
   id: string;
@@ -775,11 +775,11 @@ export default function PedigreePage() {
             ) : loadingTree && !treeData ? (
               <div style={{ padding: 24 }}>Loading pedigree…</div>
             ) : treeData ? (
-             <PedigreeCanvas
+             <TreeCanvas
   data={treeData}
   selectedId={selectedId}
   focusKey={focusKey}
-  onSelectPerson={(id) => {
+  onSelect={(id) => {
     void selectPersonInCurrentTree(id);
   }}
 />
