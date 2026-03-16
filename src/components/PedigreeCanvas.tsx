@@ -487,14 +487,21 @@ function NodeCard({
   const claimed = Boolean(p.claimedByUserId);
 
   return (
-    <button
-  type="button"
-  onClick={(e) => {
-    e.stopPropagation();
-    onClick?.();
-  }}
-  onPointerDown={(e) => e.stopPropagation()}
-  style={{
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick?.();
+        }
+      }}
+      onPointerDown={(e) => e.stopPropagation()}
+      style={{
         width: "100%",
         height: "100%",
         borderRadius: 14,
@@ -617,6 +624,6 @@ function NodeCard({
           +
         </button>
       </div>
-    </button>
+    </div>
   );
 }
