@@ -483,15 +483,13 @@ export default function PedigreePage() {
       });
 
       const data = await res.json().catch(() => ({}));
-      console.log("[v0] Save response:", res.status, data);
 
       if (!res.ok) {
         setError(data?.error ?? `SAVE_FAILED_${res.status}`);
         return;
       }
-
-      console.log("[v0] Save successful, reloading tree");
       await loadTree(selectedId);
+      await loadPersonDetail(selectedId);
     } finally {
       setEditBusy(false);
     }
