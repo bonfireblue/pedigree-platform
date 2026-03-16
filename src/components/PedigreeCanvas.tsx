@@ -441,7 +441,7 @@ useEffect(() => {
   );
 }
 
-// NodeCard component - renders individual person nodes
+// NodeCard component - renders individual person nodes in the pedigree tree
 function NodeCard({
   p,
   onClick,

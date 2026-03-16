@@ -46,11 +46,13 @@ export async function POST(request: NextRequest) {
     // Generate unique filename
     const ext = file.name.split(".").pop() || "jpg";
     const filename = `profile-photos/${me.id}/${Date.now()}.${ext}`;
+    console.log("[v0] Uploading file:", filename, "size:", file.size, "type:", file.type);
 
     // Upload to Blob storage (private access - serve via /api/file route)
     const blob = await put(filename, file, {
       access: "private",
     });
+    console.log("[v0] Upload successful, pathname:", blob.pathname);
 
     // Return the pathname for serving via /api/file route
     return NextResponse.json({ pathname: blob.pathname });
