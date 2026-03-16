@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { findUserByEmail, createPasswordResetToken, sql } from "@/lib/neon-db";
 import crypto from "crypto";
 
 export async function POST(req: Request) {
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await findUserByEmail(email);
 
     // Always return success to prevent email enumeration
     if (!user) {
@@ -26,33 +26,17 @@ export async function POST(req: Request) {
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
 
     // Invalidate any existing tokens for this user
-    await prisma.passwordResetToken.updateMany({
-      where: { userId: user.id, usedAt: null },
-      data: { usedAt: new Date() },
-    });
+    await sql`UPDATE "PasswordResetToken" SET "usedAt" = NOW() WHERE "userId" = ${user.id} AND "usedAt" IS NULL`;
 
     // Create new token
-    await prisma.passwordResetToken.create({
-      data: {
-        token,
-        userId: user.id,
-        expiresAt,
-      },
-    });
+    await createPasswordResetToken(user.id, token, expiresAt);
 
     // In production, you would send an email here with the reset link
     // For now, we'll log it for development purposes
     const resetUrl = `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/reset-password?token=${token}`;
     console.log(`Password reset link for ${email}: ${resetUrl}`);
 
-    // TODO: Send email with reset link
-    // await sendEmail({
-    //   to: email,
-    //   subject: "Reset your password",
-    //   body: `Click here to reset your password: ${resetUrl}`,
-    // });
-
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, resetUrl });
   } catch (error) {
     console.error("Forgot password error:", error);
     return NextResponse.json(

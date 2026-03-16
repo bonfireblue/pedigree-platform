@@ -1,6 +1,6 @@
 import type { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { prisma } from "@/lib/db";
+import { findUserByEmail } from "@/lib/neon-db";
 import argon2 from "argon2";
 
 export const authOptions: AuthOptions = {
@@ -16,7 +16,7 @@ export const authOptions: AuthOptions = {
         const password = credentials?.password ?? "";
         if (!email || !password) return null;
 
-        const user = await prisma.user.findUnique({ where: { email } });
+        const user = await findUserByEmail(email);
         if (!user) return null;
 
         const ok = await argon2.verify(user.passwordHash, password);

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import argon2 from "argon2";
-import { prisma } from "@/lib/db";
+import { findUserByEmail, createUser } from "@/lib/neon-db";
 
 export async function POST(req: Request) {
   try {
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     }
 
     console.log("[v0] Checking for existing user");
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const existing = await findUserByEmail(email);
     if (existing) {
       console.log("[v0] User already exists");
       return NextResponse.json(
@@ -41,13 +41,7 @@ export async function POST(req: Request) {
     const passwordHash = await argon2.hash(password);
 
     console.log("[v0] Creating user in database");
-    const newUser = await prisma.user.create({
-      data: {
-        email,
-        passwordHash,
-        role: "USER",
-      },
-    });
+    const newUser = await createUser(email, passwordHash, "USER");
     console.log("[v0] User created successfully:", newUser.id);
 
     return NextResponse.json({ ok: true }, { status: 201 });

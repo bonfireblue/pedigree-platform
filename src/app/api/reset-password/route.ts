@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { findPasswordResetToken, markTokenAsUsed, updateUserPassword } from "@/lib/neon-db";
 import argon2 from "argon2";
 
 export async function POST(req: Request) {
@@ -23,10 +23,7 @@ export async function POST(req: Request) {
     }
 
     // Find the token
-    const resetToken = await prisma.passwordResetToken.findUnique({
-      where: { token },
-      include: { user: true },
-    });
+    const resetToken = await findPasswordResetToken(token);
 
     if (!resetToken) {
       return NextResponse.json(
@@ -35,36 +32,12 @@ export async function POST(req: Request) {
       );
     }
 
-    // Check if token has been used
-    if (resetToken.usedAt) {
-      return NextResponse.json(
-        { error: "This reset link has already been used." },
-        { status: 400 }
-      );
-    }
-
-    // Check if token has expired
-    if (resetToken.expiresAt < new Date()) {
-      return NextResponse.json(
-        { error: "This reset link has expired." },
-        { status: 400 }
-      );
-    }
-
     // Hash the new password
     const passwordHash = await argon2.hash(password);
 
     // Update user password and mark token as used
-    await prisma.$transaction([
-      prisma.user.update({
-        where: { id: resetToken.userId },
-        data: { passwordHash },
-      }),
-      prisma.passwordResetToken.update({
-        where: { id: resetToken.id },
-        data: { usedAt: new Date() },
-      }),
-    ]);
+    await updateUserPassword(resetToken.userId, passwordHash);
+    await markTokenAsUsed(token);
 
     return NextResponse.json({ ok: true });
   } catch (error) {
