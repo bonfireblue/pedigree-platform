@@ -151,6 +151,13 @@ export function normalizePhotoUrl(value: unknown): string | null | undefined {
   const trimmed = value.trim();
   if (trimmed.length > 500) throw new PersonError("INVALID_PHOTO_URL", 400);
 
+  // Allow relative paths (for Vercel Blob pathnames like "profile-photos/...")
+  // or full URLs (http/https)
+  if (trimmed.startsWith("profile-photos/") || trimmed.startsWith("/")) {
+    return trimmed;
+  }
+
+  // Validate full URLs
   let parsed: URL;
   try {
     parsed = new URL(trimmed);
