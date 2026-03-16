@@ -435,6 +435,7 @@ export default function PedigreePage() {
       const res = await fetch("/api/upload", {
         method: "POST",
         body: formData,
+        credentials: "include",
       });
 
       const data = await res.json();
@@ -810,9 +811,12 @@ export default function PedigreePage() {
           className="pedigree-sidebar"
           style={{
             minWidth: 0,
-            display: "grid",
-            gridTemplateRows: "auto auto auto minmax(0, 1fr)",
+            display: "flex",
+            flexDirection: "column",
             gap: 16,
+            overflowY: "auto",
+            maxHeight: "100vh",
+            paddingBottom: 24,
           }}
         >
           <div style={{ ...sectionCardStyle(), padding: 16 }}>
