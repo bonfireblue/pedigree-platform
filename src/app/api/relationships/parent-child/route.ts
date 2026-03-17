@@ -63,6 +63,28 @@ export async function POST(req: Request) {
       VALUES (${relId}, ${parentId}, ${childId}, NOW())
     `;
 
+    // Auto-link the child to all the parent's spouses (married couples share children)
+    const spouseRows = await sql`
+      SELECT "aId" as "spouseId" FROM "Spouse" WHERE "bId" = ${parentId}
+      UNION
+      SELECT "bId" as "spouseId" FROM "Spouse" WHERE "aId" = ${parentId}
+    `;
+    
+    for (const spouse of spouseRows) {
+      // Check if relationship already exists
+      const existing = await sql`
+        SELECT id FROM "ParentChild" 
+        WHERE "parentId" = ${spouse.spouseId} AND "childId" = ${childId}
+      `;
+      if (existing.length === 0) {
+        const spouseRelId = crypto.randomUUID();
+        await sql`
+          INSERT INTO "ParentChild" (id, "parentId", "childId", "createdAt")
+          VALUES (${spouseRelId}, ${spouse.spouseId}, ${childId}, NOW())
+        `;
+      }
+    }
+
     const rows = await sql`
       SELECT id, "parentId", "childId", "createdAt"
       FROM "ParentChild"

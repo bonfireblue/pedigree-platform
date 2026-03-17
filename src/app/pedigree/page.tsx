@@ -407,17 +407,8 @@ setEditFirstName(detail.person.firstName ?? "");
       } else if (relMode === "CHILD") {
         await linkParentChild(selectedId, targetId);
       } else if (relMode === "SPOUSE") {
+        // API automatically links children of both spouses to each other
         await linkSpouse(selectedId, targetId);
-        // When linking spouses, also link the selected person's children to the new spouse
-        if (personDetail?.children && personDetail.children.length > 0) {
-          for (const child of personDetail.children) {
-            try {
-              await linkParentChild(targetId, child.id);
-            } catch {
-              // Ignore errors if relationship already exists
-            }
-          }
-        }
       } else if (relMode === "SIBLING") {
         // Link sibling by sharing parents
         if (!personDetail?.parents || personDetail.parents.length === 0) {
@@ -454,17 +445,8 @@ setEditFirstName(detail.person.firstName ?? "");
       } else if (relMode === "CHILD") {
         await linkParentChild(selectedId, newId);
       } else if (relMode === "SPOUSE") {
+        // API automatically links children of both spouses to each other
         await linkSpouse(selectedId, newId);
-        // When linking spouses, also link the selected person's children to the new spouse
-        if (personDetail?.children && personDetail.children.length > 0) {
-          for (const child of personDetail.children) {
-            try {
-              await linkParentChild(newId, child.id);
-            } catch {
-              // Ignore errors if relationship already exists
-            }
-          }
-        }
       } else if (relMode === "SIBLING") {
         // Link sibling by sharing parents
         if (!personDetail?.parents || personDetail.parents.length === 0) {
@@ -630,7 +612,7 @@ async function sendInvite() {
   }
 
   async function deleteParentChildRelationship(parentId: string, childId: string) {
-    if (!confirm("Are you sure you want to remove this parent-child relationship?")) {
+    if (!confirm("Remove this parent-child relationship?\n\nThis will not delete either person, only the connection between them.")) {
       return;
     }
     
@@ -661,7 +643,7 @@ async function sendInvite() {
 
   async function deleteSpouseRelationship(spouseId: string) {
     if (!selectedId) return;
-    if (!confirm("Are you sure you want to remove this spouse relationship?")) {
+    if (!confirm("Remove this spouse relationship?\n\nThis will not delete either person or affect shared children, only the marriage connection between them.")) {
       return;
     }
     
@@ -692,7 +674,7 @@ async function sendInvite() {
 
   async function deleteSiblingRelationship(siblingId: string) {
     if (!selectedId) return;
-    if (!confirm("Are you sure you want to remove this sibling relationship? This will remove the shared parent-child links.")) {
+    if (!confirm("Remove this sibling relationship?\n\nThis will remove the sibling from your shared parents. The sibling will no longer appear as a child of your parents.")) {
       return;
     }
     

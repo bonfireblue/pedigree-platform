@@ -64,6 +64,41 @@ export async function POST(req: Request) {
       VALUES (${relId}, ${xId}, ${yId}, NOW())
     `;
 
+    // Auto-link each spouse's children to the other spouse (married couples share children)
+    // Get children of person A and link them to person B
+    const childrenOfA = await sql`
+      SELECT "childId" FROM "ParentChild" WHERE "parentId" = ${aId}
+    `;
+    for (const child of childrenOfA) {
+      const existingB = await sql`
+        SELECT id FROM "ParentChild" WHERE "parentId" = ${bId} AND "childId" = ${child.childId}
+      `;
+      if (existingB.length === 0) {
+        const childRelId = crypto.randomUUID();
+        await sql`
+          INSERT INTO "ParentChild" (id, "parentId", "childId", "createdAt")
+          VALUES (${childRelId}, ${bId}, ${child.childId}, NOW())
+        `;
+      }
+    }
+
+    // Get children of person B and link them to person A
+    const childrenOfB = await sql`
+      SELECT "childId" FROM "ParentChild" WHERE "parentId" = ${bId}
+    `;
+    for (const child of childrenOfB) {
+      const existingA = await sql`
+        SELECT id FROM "ParentChild" WHERE "parentId" = ${aId} AND "childId" = ${child.childId}
+      `;
+      if (existingA.length === 0) {
+        const childRelId = crypto.randomUUID();
+        await sql`
+          INSERT INTO "ParentChild" (id, "parentId", "childId", "createdAt")
+          VALUES (${childRelId}, ${aId}, ${child.childId}, NOW())
+        `;
+      }
+    }
+
     const rows = await sql`
       SELECT id, "aId", "bId", "createdAt"
       FROM "Spouse"
