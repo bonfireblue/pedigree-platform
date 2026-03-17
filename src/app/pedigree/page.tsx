@@ -426,6 +426,7 @@ export default function PedigreePage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    console.log("[v0] Starting photo upload:", file.name, file.type, file.size);
     setUploadingPhoto(true);
     setError(null);
 
@@ -439,16 +440,21 @@ export default function PedigreePage() {
         credentials: "include",
       });
 
+      console.log("[v0] Upload response status:", res.status);
       const data = await res.json();
+      console.log("[v0] Upload response data:", JSON.stringify(data));
 
       if (!res.ok) {
+        console.log("[v0] Upload failed:", data?.error);
         setError(data?.error ?? "Photo upload failed");
         return;
       }
 
       // Store the pathname for serving via /api/file route
+      console.log("[v0] Setting editPhotoUrl to:", data.pathname);
       setEditPhotoUrl(data.pathname);
-    } catch {
+    } catch (err) {
+      console.log("[v0] Upload error:", err);
       setError("Photo upload failed");
     } finally {
       setUploadingPhoto(false);
@@ -461,6 +467,22 @@ export default function PedigreePage() {
     // Compute fullName from firstName + lastName
     const fullName = [editFirstName.trim(), editLastName.trim()].filter(Boolean).join(" ") || "Unnamed";
 
+    const payload = {
+      firstName: editFirstName.trim() || null,
+      lastName: editLastName.trim() || null,
+      fullName,
+      birthDate: editBirthDate || null,
+      deathDate: editDeathDate || null,
+      grewUpLocation: editGrewUpLocation.trim() || null,
+      occupation: editOccupation.trim() || null,
+      proudOf: editProudOf.trim() || null,
+      interests: editInterests.trim() || null,
+      photoUrl: editPhotoUrl || null,
+    };
+    
+    console.log("[v0] Saving person - payload:", JSON.stringify(payload));
+    console.log("[v0] editPhotoUrl value:", editPhotoUrl);
+
     setEditBusy(true);
     setError(null);
 
@@ -469,26 +491,19 @@ export default function PedigreePage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          firstName: editFirstName.trim() || null,
-          lastName: editLastName.trim() || null,
-          fullName,
-          birthDate: editBirthDate || null,
-          deathDate: editDeathDate || null,
-          grewUpLocation: editGrewUpLocation.trim() || null,
-          occupation: editOccupation.trim() || null,
-          proudOf: editProudOf.trim() || null,
-          interests: editInterests.trim() || null,
-          photoUrl: editPhotoUrl || null,
-        }),
+        body: JSON.stringify(payload),
       });
 
+      console.log("[v0] Save response status:", res.status);
       const data = await res.json().catch(() => ({}));
+      console.log("[v0] Save response data:", JSON.stringify(data));
 
       if (!res.ok) {
+        console.log("[v0] Save failed:", data?.error);
         setError(data?.error ?? `SAVE_FAILED_${res.status}`);
         return;
       }
+      console.log("[v0] Save successful, reloading tree and person detail");
       await loadTree(selectedId);
       await loadPersonDetail(selectedId);
     } finally {
