@@ -317,7 +317,7 @@ function NodeCard({
   const photoSrc = p.photoUrl
     ? p.photoUrl.startsWith("http")
       ? p.photoUrl
-      : `/api/file?path=${encodeURIComponent(p.photoUrl)}`
+      : `/api/file?pathname=${encodeURIComponent(p.photoUrl)}`
     : null;
 
   return (
