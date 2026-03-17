@@ -784,6 +784,9 @@ export default function PedigreePage() {
   onSelectPerson={(id) => {
     void selectPersonInCurrentTree(id);
   }}
+  onNavigateToTree={(id) => {
+    void loadTree(id);
+  }}
 />
 
             ) : (

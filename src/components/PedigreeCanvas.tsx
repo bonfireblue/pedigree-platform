@@ -8,6 +8,7 @@ type PedigreeCanvasProps = {
   selectedId?: string;
   focusKey?: number;
   onSelectPerson?: (id: string) => void;
+  onNavigateToTree?: (id: string) => void;
 };
 
 type Viewport = {
@@ -21,6 +22,7 @@ export function PedigreeCanvas({
   selectedId,
   focusKey,
   onSelectPerson,
+  onNavigateToTree,
 }: PedigreeCanvasProps) {
   const NODE_W = 240;
   const NODE_H = 74;
@@ -147,6 +149,12 @@ export function PedigreeCanvas({
     }
   }
 
+  function handleNavigateToTree(id: string) {
+    if (typeof onNavigateToTree === "function") {
+      onNavigateToTree(id);
+    }
+  }
+
   function onWheel(e: React.WheelEvent) {
     e.preventDefault();
     if (!svgRef.current) return;
@@ -255,6 +263,7 @@ export function PedigreeCanvas({
                     <NodeCard
                       p={person}
                       onClick={() => handleSelectPerson(n.id)}
+                      onDoubleClick={() => handleNavigateToTree(n.id)}
                       isCenter={n.id === layout.centerId}
                       isSelected={n.id === selectedId}
                     />
@@ -272,16 +281,19 @@ export function PedigreeCanvas({
 function NodeCard({
   p,
   onClick,
+  onDoubleClick,
   isCenter,
   isSelected,
 }: {
   p?: {
     id: string;
     fullName?: string;
+    photoUrl?: string | null;
     claimedByUserId?: string | null;
     isPrivate?: boolean;
   };
   onClick?: () => void;
+  onDoubleClick?: () => void;
   isCenter?: boolean;
   isSelected?: boolean;
 }) {
@@ -293,7 +305,20 @@ function NodeCard({
     );
   }
 
-  const claimed = Boolean(p.claimedByUserId);
+  // Get initials for avatar fallback
+  const initials = (p.fullName || "?")
+    .split(" ")
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+  // Build photo URL if photoUrl is a relative path
+  const photoSrc = p.photoUrl
+    ? p.photoUrl.startsWith("http")
+      ? p.photoUrl
+      : `/api/file?path=${encodeURIComponent(p.photoUrl)}`
+    : null;
 
   return (
     <div
@@ -302,6 +327,10 @@ function NodeCard({
       onClick={(e) => {
         e.stopPropagation();
         onClick?.();
+      }}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        onDoubleClick?.();
       }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -317,7 +346,7 @@ function NodeCard({
         border: isSelected ? "3px solid #3b82f6" : isCenter ? "3px solid #60a5fa" : "1px solid #d1d5db",
         background: isSelected ? "#eff6ff" : "#ffffff",
         color: "#111827",
-        padding: 10,
+        padding: 12,
         textAlign: "left",
         cursor: "pointer",
         boxShadow: isSelected
@@ -325,36 +354,45 @@ function NodeCard({
           : isCenter
           ? "0 0 18px 6px rgba(96,165,250,0.35), 0 0 40px 16px rgba(96,165,250,0.20), 0 10px 30px rgba(59,130,246,0.18)"
           : "0 6px 16px rgba(15, 23, 42, 0.08)",
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
       }}
-      title={p.id}
+      title={p.fullName || "Unnamed"}
     >
-      <div style={{ fontWeight: 600, fontSize: 15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-        {p.fullName?.trim() || "Unnamed"}
+      {/* Profile Avatar */}
+      <div
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: "50%",
+          background: photoSrc ? "transparent" : "#e0e7ff",
+          color: "#4338ca",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontWeight: 600,
+          fontSize: 16,
+          flexShrink: 0,
+          overflow: "hidden",
+        }}
+      >
+        {photoSrc ? (
+          <img
+            src={photoSrc}
+            alt={p.fullName || "Profile"}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+        ) : (
+          initials
+        )}
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
-        <span
-          style={{
-            fontSize: 11,
-            padding: "2px 6px",
-            borderRadius: 4,
-            background: claimed ? "#d1fae5" : "#fef3c7",
-            color: claimed ? "#065f46" : "#92400e",
-          }}
-        >
-          {claimed ? "Claimed" : "Unclaimed"}
-        </span>
 
-        {isCenter ? (
-          <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "#dbeafe", color: "#1e40af" }}>
-            Selected
-          </span>
-        ) : null}
-
-        {p.isPrivate ? (
-          <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "#f1f5f9", color: "#475569" }}>
-            Private
-          </span>
-        ) : null}
+      {/* Name */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 600, fontSize: 15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {p.fullName?.trim() || "Unnamed"}
+        </div>
       </div>
     </div>
   );
