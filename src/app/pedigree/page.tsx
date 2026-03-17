@@ -52,6 +52,7 @@ type PersonDetail = {
     currentLocation?: string | null;
     birthDate?: string | null;
     deathDate?: string | null;
+    gender?: string | null;
     photoUrl?: string | null;
     proudOf?: string | null;
     occupation?: string | null;
@@ -75,7 +76,7 @@ type SearchResult = {
   claimedByUserId?: string | null;
 };
 
-type RelMode = "PARENT" | "CHILD" | "SPOUSE";
+type RelMode = "PARENT" | "CHILD" | "SPOUSE" | "SIBLING";
 
 function badgeStyle(claimed: boolean): React.CSSProperties {
   return {
@@ -164,6 +165,7 @@ export default function PedigreePage() {
 
   const [editFirstName, setEditFirstName] = useState("");
   const [editLastName, setEditLastName] = useState("");
+  const [editGender, setEditGender] = useState("");
   const [editBirthDate, setEditBirthDate] = useState("");
   const [editDeathDate, setEditDeathDate] = useState("");
   const [editGrewUpLocation, setEditGrewUpLocation] = useState("");
@@ -205,9 +207,10 @@ export default function PedigreePage() {
       setPersonDetail(detail);
       
       // Populate form fields
-      setEditFirstName(detail.person.firstName ?? "");
-      setEditLastName(detail.person.lastName ?? "");
-      setEditBirthDate(detail.person.birthDate ? detail.person.birthDate.split("T")[0] : "");
+setEditFirstName(detail.person.firstName ?? "");
+  setEditLastName(detail.person.lastName ?? "");
+  setEditGender(detail.person.gender ?? "");
+  setEditBirthDate(detail.person.birthDate ? detail.person.birthDate.split("T")[0] : "");
       setEditDeathDate(detail.person.deathDate ? detail.person.deathDate.split("T")[0] : "");
       setEditGrewUpLocation(detail.person.grewUpLocation ?? "");
       setEditOccupation(detail.person.occupation ?? "");
@@ -385,15 +388,24 @@ export default function PedigreePage() {
         await linkParentChild(targetId, selectedId);
       } else if (relMode === "CHILD") {
         await linkParentChild(selectedId, targetId);
-      } else {
+      } else if (relMode === "SPOUSE") {
         await linkSpouse(selectedId, targetId);
+      } else if (relMode === "SIBLING") {
+        // Link sibling by sharing parents
+        if (!personDetail?.parents || personDetail.parents.length === 0) {
+          throw new Error("Cannot add sibling: selected person has no parents. Add parents first.");
+        }
+        // Link the sibling to all of the selected person's parents
+        for (const parent of personDetail.parents) {
+          await linkParentChild(parent.id, targetId);
+        }
       }
 
       setExistingRelQuery("");
       setExistingRelOpen(false);
       await loadTree(selectedId);
-    } catch (e: any) {
-      setError(String(e?.message ?? e));
+    } catch (e: unknown) {
+      setError(String(e instanceof Error ? e.message : e));
     } finally {
       setRelBusy(false);
     }
@@ -413,15 +425,24 @@ export default function PedigreePage() {
         await linkParentChild(newId, selectedId);
       } else if (relMode === "CHILD") {
         await linkParentChild(selectedId, newId);
-      } else {
+      } else if (relMode === "SPOUSE") {
         await linkSpouse(selectedId, newId);
+      } else if (relMode === "SIBLING") {
+        // Link sibling by sharing parents
+        if (!personDetail?.parents || personDetail.parents.length === 0) {
+          throw new Error("Cannot add sibling: selected person has no parents. Add parents first.");
+        }
+        // Link the new sibling to all of the selected person's parents
+        for (const parent of personDetail.parents) {
+          await linkParentChild(parent.id, newId);
+        }
       }
 
       setNewRelativeName("");
       setNewRelativePrivate(false);
       await loadTree(selectedId);
-    } catch (e: any) {
-      setError(String(e?.message ?? e));
+    } catch (e: unknown) {
+      setError(String(e instanceof Error ? e.message : e));
     } finally {
       setRelBusy(false);
     }
@@ -480,6 +501,7 @@ export default function PedigreePage() {
           firstName: editFirstName.trim() || null,
           lastName: editLastName.trim() || null,
           fullName,
+          gender: editGender || null,
           birthDate: editBirthDate || null,
           deathDate: editDeathDate || null,
           grewUpLocation: editGrewUpLocation.trim() || null,
@@ -599,7 +621,7 @@ async function sendInvite() {
   const selectedName = personDetail?.person.fullName ?? "No person selected";
   const selectedClaimed = Boolean(personDetail?.person.claimedByUserId);
   const relTitle =
-    relMode === "PARENT" ? "Add Parent" : relMode === "CHILD" ? "Add Child" : "Add Spouse";
+    relMode === "PARENT" ? "Add Parent" : relMode === "CHILD" ? "Add Child" : relMode === "SPOUSE" ? "Add Spouse" : "Add Sibling";
 
   if (status === "loading") return null;
   if (status === "unauthenticated") return null;
@@ -998,6 +1020,29 @@ async function sendInvite() {
                     </div>
                   </div>
 
+                  {/* Gender */}
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4, display: "block" }}>
+                      Gender
+                    </label>
+                    <select
+                      value={editGender}
+                      onChange={(e) => setEditGender(e.target.value)}
+                      style={{
+                        width: "100%",
+                        borderRadius: 12,
+                        border: "1px solid #d1d5db",
+                        padding: "10px 12px",
+                        background: "#ffffff",
+                      }}
+                    >
+                      <option value="">Prefer not to say</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+
                   {/* Lived From - To */}
                   <div>
                     <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4, display: "block" }}>
@@ -1281,6 +1326,18 @@ async function sendInvite() {
                 }}
               >
                 Spouse
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setRelMode("SIBLING")}
+                style={{
+                  ...actionButtonStyle(relMode === "SIBLING"),
+                  background: relMode === "SIBLING" ? "#111827" : "#ffffff",
+                  color: relMode === "SIBLING" ? "#ffffff" : "#111827",
+                }}
+              >
+                Sibling
               </button>
             </div>
 

@@ -28,6 +28,7 @@ type PersonRow = {
   currentLocation: string | null;
   birthDate: string | null;
   deathDate: string | null;
+  gender: string | null;
   photoUrl: string | null;
   proudOf: string | null;
   occupation: string | null;
@@ -86,7 +87,7 @@ export async function GET(req: Request, ctx: Ctx) {
 
   const personRows = await sql`
     SELECT id, "firstName", "lastName", "fullName", "createdAt", "isPrivate", "isVerified", bio, location,
-           "grewUpLocation", "currentLocation", "birthDate", "deathDate", "photoUrl",
+           "grewUpLocation", "currentLocation", "birthDate", "deathDate", "gender", "photoUrl",
            "proudOf", occupation, interests, "createdById", "claimedByUserId", "familyGraphId",
            "deletedAt", "deletedByUserId", "purgeAfter"
     FROM "Person"
@@ -188,6 +189,7 @@ export async function GET(req: Request, ctx: Ctx) {
       currentLocation: person.currentLocation,
       birthDate: person.birthDate,
       deathDate: person.deathDate,
+      gender: person.gender,
       photoUrl: person.photoUrl,
       proudOf: person.proudOf,
       occupation: person.occupation,
