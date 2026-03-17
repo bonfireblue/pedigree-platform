@@ -659,6 +659,70 @@ async function sendInvite() {
     }
   }
 
+  async function deleteSpouseRelationship(spouseId: string) {
+    if (!selectedId) return;
+    if (!confirm("Are you sure you want to remove this spouse relationship?")) {
+      return;
+    }
+    
+    setError(null);
+    
+    try {
+      const res = await fetch("/api/relationships/spouse", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aId: selectedId, bId: spouseId }),
+      });
+      
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data?.error ?? `DELETE_FAILED_${res.status}`);
+        return;
+      }
+      
+      // Refresh the person detail to update relationships
+      if (selectedId) {
+        await loadPersonDetail(selectedId);
+        await loadTree(selectedId);
+      }
+    } catch (e: unknown) {
+      setError(String(e instanceof Error ? e.message : e));
+    }
+  }
+
+  async function deleteSiblingRelationship(siblingId: string) {
+    if (!selectedId) return;
+    if (!confirm("Are you sure you want to remove this sibling relationship? This will remove the shared parent-child links.")) {
+      return;
+    }
+    
+    setError(null);
+    
+    try {
+      // To remove a sibling relationship, we need to remove the parent-child links
+      // that make them siblings (shared parents)
+      // Get parents of both the selected person and the sibling
+      const selectedParents = personDetail?.parents ?? [];
+      
+      // For each shared parent, remove the sibling as their child
+      for (const parent of selectedParents) {
+        await fetch("/api/relationships/parent-child", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ parentId: parent.id, childId: siblingId }),
+        });
+      }
+      
+      // Refresh the person detail to update relationships
+      if (selectedId) {
+        await loadPersonDetail(selectedId);
+        await loadTree(selectedId);
+      }
+    } catch (e: unknown) {
+      setError(String(e instanceof Error ? e.message : e));
+    }
+  }
+
   async function vouchForPerson() {
     if (!selectedId) return;
     
@@ -1558,6 +1622,7 @@ async function sendInvite() {
               title="Spouses"
               people={personDetail?.spouses ?? []}
               onSelect={(id) => void selectPersonInCurrentTree(id)}
+              onDelete={(spouseId) => void deleteSpouseRelationship(spouseId)}
             />
 
             <RelationshipSection
@@ -1567,10 +1632,11 @@ async function sendInvite() {
               onDelete={selectedId ? (childId) => void deleteParentChildRelationship(selectedId, childId) : undefined}
             />
 
-            <RelationshipSection
+<RelationshipSection
               title="Siblings"
               people={personDetail?.siblings ?? []}
               onSelect={(id) => void selectPersonInCurrentTree(id)}
+              onDelete={(siblingId) => void deleteSiblingRelationship(siblingId)}
             />
           </div>
         </aside>
