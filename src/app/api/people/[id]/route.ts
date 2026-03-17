@@ -211,7 +211,9 @@ export async function PATCH(req: Request, ctx: Ctx) {
       return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
     }
 
+    console.log("[v0-debug] PATCH body received:", JSON.stringify(parsed.json));
     const data = buildPersonPatch(parsed.json);
+    console.log("[v0-debug] buildPersonPatch result:", JSON.stringify(data));
 
     // Build dynamic SET clause
     const setClauses: string[] = [];
@@ -224,10 +226,14 @@ export async function PATCH(req: Request, ctx: Ctx) {
       paramIndex++;
     }
 
+    console.log("[v0-debug] SET clauses:", setClauses);
+
     if (setClauses.length > 0) {
       values.push(id);
       const query = `UPDATE "Person" SET ${setClauses.join(", ")} WHERE id = $${paramIndex}`;
+      console.log("[v0-debug] Executing query:", query);
       await sql.unsafe(query, values);
+      console.log("[v0-debug] Query executed successfully");
     }
 
     const updatedRows = await sql`
