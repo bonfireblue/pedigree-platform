@@ -2,7 +2,7 @@
 // Pedigree page - March 17 2026 rebuild v2
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import FamilyTreeView from "@/components/FamilyTreeView";
+import { PedigreeCanvas } from "@/components/PedigreeCanvas";
 
 type TreeApiNode = {
   id: string;
@@ -777,11 +777,11 @@ export default function PedigreePage() {
             ) : loadingTree && !treeData ? (
               <div style={{ padding: 24 }}>Loading pedigree…</div>
             ) : treeData ? (
-             <FamilyTreeView
+             <PedigreeCanvas
   data={treeData}
   selectedId={selectedId}
   focusKey={focusKey}
-  onSelect={(id) => {
+  onSelectPerson={(id) => {
     void selectPersonInCurrentTree(id);
   }}
 />
