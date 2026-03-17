@@ -173,6 +173,7 @@ model Person {
   // Life details
   birthDate       DateTime?
   deathDate       DateTime?
+  gender          String?   // male, female, other, or null (prefer not to say)
   grewUpLocation  String?   // Where did you grow up?
   currentLocation String?   // Where do you live now?
 
