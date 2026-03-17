@@ -21,6 +21,7 @@ type PersonRow = {
   fullName: string;
   createdAt: string;
   isPrivate: boolean;
+  isVerified: boolean;
   bio: string | null;
   location: string | null;
   grewUpLocation: string | null;
@@ -84,7 +85,7 @@ export async function GET(req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
 
   const personRows = await sql`
-    SELECT id, "firstName", "lastName", "fullName", "createdAt", "isPrivate", bio, location,
+    SELECT id, "firstName", "lastName", "fullName", "createdAt", "isPrivate", "isVerified", bio, location,
            "grewUpLocation", "currentLocation", "birthDate", "deathDate", "photoUrl",
            "proudOf", occupation, interests, "createdById", "claimedByUserId", "familyGraphId",
            "deletedAt", "deletedByUserId", "purgeAfter"
@@ -151,6 +152,30 @@ export async function GET(req: Request, ctx: Ctx) {
     .filter((p: PersonRow) => canViewPerson(me.id, me.isAdmin, membership.role, p))
     .map(slim);
 
+  // Check if current user can vouch for this person
+  let canVouch = false;
+  if (person.claimedByUserId && !person.isVerified) {
+    // Get current user's claimed person to check if they're verified
+    const myPersonRows = await sql`
+      SELECT id, "isVerified" FROM "Person"
+      WHERE "claimedByUserId" = ${me.id} AND "familyGraphId" = ${person.familyGraphId}
+    `;
+    const myPerson = myPersonRows[0];
+    
+    if (myPerson?.isVerified) {
+      // Check if current user was the original inviter
+      const wasInviter = await sql`
+        SELECT id FROM "Invitation"
+        WHERE "targetPersonId" = ${person.id}
+          AND "inviterUserId" = ${me.id}
+          AND status = 'ACCEPTED'
+        LIMIT 1
+      `;
+      // Can vouch if verified and wasn't the inviter
+      canVouch = wasInviter.length === 0;
+    }
+  }
+
   return NextResponse.json({
     person: {
       id: person.id,
@@ -168,6 +193,7 @@ export async function GET(req: Request, ctx: Ctx) {
       occupation: person.occupation,
       interests: person.interests,
       isPrivate: person.isPrivate,
+      isVerified: person.isVerified ?? false,
       createdAt: person.createdAt,
       claimedByUserId: person.claimedByUserId,
       deletedAt: person.deletedAt,
@@ -176,6 +202,7 @@ export async function GET(req: Request, ctx: Ctx) {
     parents,
     children,
     spouses,
+    canVouch,
   });
 }
 

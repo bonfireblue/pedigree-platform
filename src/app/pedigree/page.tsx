@@ -57,12 +57,14 @@ type PersonDetail = {
     occupation?: string | null;
     interests?: string | null;
     isPrivate: boolean;
+    isVerified: boolean;
     createdAt: string;
     claimedByUserId?: string | null;
   };
   parents: PersonLite[];
   children: PersonLite[];
   spouses: PersonLite[];
+  canVouch?: boolean; // Whether current user can vouch for this person
 };
 
 type SearchResult = {
@@ -155,7 +157,10 @@ export default function PedigreePage() {
   const [existingRelOpen, setExistingRelOpen] = useState(false);
 
   const [inviteEmail, setInviteEmail] = useState("");
+  const [invitePhone, setInvitePhone] = useState("");
+  const [inviteMethod, setInviteMethod] = useState<"email" | "phone">("email");
   const [inviteBusy, setInviteBusy] = useState(false);
+  const [vouchBusy, setVouchBusy] = useState(false);
 
   const [editFirstName, setEditFirstName] = useState("");
   const [editLastName, setEditLastName] = useState("");
@@ -525,34 +530,69 @@ export default function PedigreePage() {
     }
   }
 
-  async function sendInvite() {
-    if (!selectedId || !inviteEmail.trim()) return;
-
+async function sendInvite() {
+    const contact = inviteMethod === "email" ? inviteEmail.trim() : invitePhone.trim();
+    if (!selectedId || !contact) return;
+    
     setInviteBusy(true);
     setError(null);
-
+    
     try {
+      const payload: { targetPersonId: string; email?: string; phone?: string } = {
+        targetPersonId: selectedId,
+      };
+      if (inviteMethod === "email") {
+        payload.email = inviteEmail.trim();
+      } else {
+        payload.phone = invitePhone.trim();
+      }
+
       const res = await fetch("/api/invitations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          targetPersonId: selectedId,
-          email: inviteEmail.trim(),
-        }),
+        body: JSON.stringify(payload),
       });
-
+      
       const data = await res.json().catch(() => ({}));
-
+      
       if (!res.ok) {
         setError(data?.error ?? `INVITE_FAILED_${res.status}`);
         return;
       }
-
+      
       setInviteEmail("");
-      window.prompt("Invite link", data.inviteUrl);
+      setInvitePhone("");
+      window.prompt("Invite link (share this with the person)", data.inviteUrl);
       await loadTree(selectedId);
     } finally {
       setInviteBusy(false);
+    }
+  }
+
+  async function vouchForPerson() {
+    if (!selectedId) return;
+    
+    setVouchBusy(true);
+    setError(null);
+    
+    try {
+      const res = await fetch("/api/vouch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ personId: selectedId }),
+      });
+      
+      const data = await res.json().catch(() => ({}));
+      
+      if (!res.ok) {
+        setError(data?.error ?? `VOUCH_FAILED_${res.status}`);
+        return;
+      }
+      
+      // Refresh person detail to show updated verification status
+      await loadPersonDetail(selectedId);
+    } finally {
+      setVouchBusy(false);
     }
   }
 
@@ -838,8 +878,26 @@ export default function PedigreePage() {
                 </div>
               </div>
 
-              <div style={badgeStyle(selectedClaimed)}>
-                {selectedClaimed ? "CLAIMED" : "UNCLAIMED"}
+              <div style={{ display: "flex", gap: 6 }}>
+                <div style={badgeStyle(selectedClaimed)}>
+                  {selectedClaimed ? "CLAIMED" : "UNCLAIMED"}
+                </div>
+                {selectedClaimed && (
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      borderRadius: 999,
+                      padding: "4px 10px",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      background: personDetail?.person.isVerified ? "#d1fae5" : "#fef3c7",
+                      color: personDetail?.person.isVerified ? "#065f46" : "#92400e",
+                    }}
+                  >
+                    {personDetail?.person.isVerified ? "VERIFIED" : "UNVERIFIED"}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1070,6 +1128,23 @@ export default function PedigreePage() {
                     >
                       {personDetail.person.isPrivate ? "Make Public" : "Make Private"}
                     </button>
+
+                    {/* Vouch button - only show for claimed but unverified persons */}
+                    {selectedClaimed && !personDetail.person.isVerified && personDetail.canVouch && (
+                      <button
+                        type="button"
+                        onClick={() => void vouchForPerson()}
+                        disabled={vouchBusy}
+                        style={{
+                          ...actionButtonStyle(false),
+                          background: "#d1fae5",
+                          color: "#065f46",
+                          border: "1px solid #10b981",
+                        }}
+                      >
+                        {vouchBusy ? "Vouching..." : "Verify This Person"}
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -1085,22 +1160,76 @@ export default function PedigreePage() {
                       INVITE TO CLAIM
                     </div>
 
-                    <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                      <input
-                        value={inviteEmail}
-                        onChange={(e) => setInviteEmail(e.target.value)}
-                        placeholder="person@email.com"
+                    {/* Email/Phone toggle */}
+                    <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                      <button
+                        type="button"
+                        onClick={() => setInviteMethod("email")}
                         style={{
-                          width: "100%",
-                          borderRadius: 12,
+                          flex: 1,
+                          padding: "8px 12px",
+                          borderRadius: 8,
                           border: "1px solid #d1d5db",
-                          padding: "10px 12px",
+                          background: inviteMethod === "email" ? "#111827" : "#ffffff",
+                          color: inviteMethod === "email" ? "#ffffff" : "#111827",
+                          fontWeight: 600,
+                          fontSize: 13,
+                          cursor: "pointer",
                         }}
-                      />
+                      >
+                        Email
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setInviteMethod("phone")}
+                        style={{
+                          flex: 1,
+                          padding: "8px 12px",
+                          borderRadius: 8,
+                          border: "1px solid #d1d5db",
+                          background: inviteMethod === "phone" ? "#111827" : "#ffffff",
+                          color: inviteMethod === "phone" ? "#ffffff" : "#111827",
+                          fontWeight: 600,
+                          fontSize: 13,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Phone
+                      </button>
+                    </div>
+
+                    <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+                      {inviteMethod === "email" ? (
+                        <input
+                          value={inviteEmail}
+                          onChange={(e) => setInviteEmail(e.target.value)}
+                          placeholder="person@email.com"
+                          type="email"
+                          style={{
+                            width: "100%",
+                            borderRadius: 12,
+                            border: "1px solid #d1d5db",
+                            padding: "10px 12px",
+                          }}
+                        />
+                      ) : (
+                        <input
+                          value={invitePhone}
+                          onChange={(e) => setInvitePhone(e.target.value)}
+                          placeholder="+1 (555) 123-4567"
+                          type="tel"
+                          style={{
+                            width: "100%",
+                            borderRadius: 12,
+                            border: "1px solid #d1d5db",
+                            padding: "10px 12px",
+                          }}
+                        />
+                      )}
                       <button
                         type="button"
                         onClick={() => void sendInvite()}
-                        disabled={!inviteEmail.trim() || inviteBusy}
+                        disabled={(inviteMethod === "email" ? !inviteEmail.trim() : !invitePhone.trim()) || inviteBusy}
                         style={actionButtonStyle(false)}
                       >
                         {inviteBusy ? "Sending..." : "Create Invite Link"}

@@ -34,7 +34,9 @@ export async function POST(req: Request) {
     const token = assertNonEmptyToken(parsed.json?.token);
     const invitation = await getPendingInvitationOrThrow(token);
 
-    if (normalizeEmail(invitation.email) !== normalizeEmail(me.email)) {
+    // Check if the logged-in user's email matches the invitation email
+    // Phone-based invites can be accepted by any logged-in user (they verify via SMS link)
+    if (invitation.email && normalizeEmail(invitation.email) !== normalizeEmail(me.email)) {
       return NextResponse.json({ error: "EMAIL_MISMATCH" }, { status: 400 });
     }
 
@@ -67,7 +69,7 @@ export async function POST(req: Request) {
         throw new InvitationError("INVITE_EXPIRED", 400);
       }
 
-      if (normalizeEmail(freshInvite.email) !== normalizeEmail(me.email)) {
+      if (freshInvite.email && normalizeEmail(freshInvite.email) !== normalizeEmail(me.email)) {
         throw new InvitationError("EMAIL_MISMATCH", 400);
       }
 
@@ -87,6 +89,26 @@ export async function POST(req: Request) {
         },
       });
 
+      // Check if this person should be auto-verified (first 10 invitees from graph creator)
+      const graph = await tx.familyGraph.findUnique({
+        where: { id: freshInvite.familyGraphId },
+        select: { createdById: true },
+      });
+
+      let shouldAutoVerify = false;
+      if (graph && freshInvite.inviterUserId === graph.createdById) {
+        // Count how many invites from the creator have been accepted before this one
+        const acceptedCount = await tx.invitation.count({
+          where: {
+            familyGraphId: freshInvite.familyGraphId,
+            inviterUserId: graph.createdById,
+            status: "ACCEPTED",
+          },
+        });
+        // First 10 invitees are auto-verified
+        shouldAutoVerify = acceptedCount < 10;
+      }
+
       const claimResult = await tx.person.updateMany({
         where: {
           id: freshInvite.targetPersonId,
@@ -94,6 +116,7 @@ export async function POST(req: Request) {
         },
         data: {
           claimedByUserId: me.id,
+          isVerified: shouldAutoVerify,
         },
       });
 

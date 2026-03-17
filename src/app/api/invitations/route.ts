@@ -9,7 +9,10 @@ import {
   assertInviteTargetIsValid,
   assertNoDuplicateActiveInvite,
   assertValidEmail,
+  assertValidPhone,
   computeCanInvite,
+  normalizeEmail,
+  normalizePhone,
 } from "@/lib/invitationRules";
 
 export async function POST(req: Request) {
@@ -56,12 +59,27 @@ export async function POST(req: Request) {
     const targetPersonId =
       typeof parsed.json?.targetPersonId === "string" ? parsed.json.targetPersonId.trim() : "";
     const rawEmail = typeof parsed.json?.email === "string" ? parsed.json.email : "";
+    const rawPhone = typeof parsed.json?.phone === "string" ? parsed.json.phone : "";
 
-    if (!targetPersonId || !rawEmail) {
-      return NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 });
+    if (!targetPersonId) {
+      return NextResponse.json({ error: "MISSING_TARGET_PERSON" }, { status: 400 });
     }
 
-    const email = assertValidEmail(rawEmail);
+    // Must have either email or phone
+    if (!rawEmail && !rawPhone) {
+      return NextResponse.json({ error: "MISSING_EMAIL_OR_PHONE" }, { status: 400 });
+    }
+
+    // Validate and normalize contact info
+    let email: string | null = null;
+    let phone: string | null = null;
+
+    if (rawEmail) {
+      email = assertValidEmail(rawEmail);
+    }
+    if (rawPhone) {
+      phone = assertValidPhone(rawPhone);
+    }
 
     await assertInviteTargetIsValid({
       familyGraphId: membership.familyGraphId,
@@ -72,6 +90,7 @@ export async function POST(req: Request) {
       familyGraphId: membership.familyGraphId,
       targetPersonId,
       email,
+      phone,
     });
 
     const token = randomBytes(32).toString("hex");
@@ -80,12 +99,13 @@ export async function POST(req: Request) {
       data: {
         token,
         email,
+        phone,
         familyGraphId: membership.familyGraphId,
         targetPersonId,
         inviterUserId: me.id,
         expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
       },
-      select: { id: true, token: true, email: true, targetPersonId: true, expiresAt: true },
+      select: { id: true, token: true, email: true, phone: true, targetPersonId: true, expiresAt: true },
     });
 
     const inviteUrl = `${process.env.NEXTAUTH_URL}/accept-invite?token=${invitation.token}`;
@@ -94,6 +114,7 @@ export async function POST(req: Request) {
       invitationId: invitation.id,
       inviteUrl,
       email: invitation.email,
+      phone: invitation.phone,
       targetPersonId: invitation.targetPersonId,
       expiresAt: invitation.expiresAt?.toISOString() ?? null,
     });

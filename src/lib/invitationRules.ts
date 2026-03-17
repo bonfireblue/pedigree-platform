@@ -24,6 +24,21 @@ export function assertValidEmail(email: string) {
   return value;
 }
 
+export function normalizePhone(phone: string) {
+  // Remove all non-digit characters except leading +
+  return String(phone).trim().replace(/[^\d+]/g, "");
+}
+
+export function assertValidPhone(phone: string) {
+  const value = normalizePhone(phone);
+  // Must have at least 10 digits (US minimum) and at most 15 (ITU max)
+  const digitsOnly = value.replace(/\D/g, "");
+  if (digitsOnly.length < 10 || digitsOnly.length > 15) {
+    throw new InvitationError("INVALID_PHONE", 400);
+  }
+  return value;
+}
+
 export function assertNonEmptyToken(token: unknown) {
   if (!token || typeof token !== "string" || !token.trim()) {
     throw new InvitationError("MISSING_TOKEN", 400);
@@ -96,17 +111,30 @@ export async function assertInviteTargetIsValid(params: {
 export async function assertNoDuplicateActiveInvite(params: {
   familyGraphId: string;
   targetPersonId: string;
-  email: string;
+  email?: string | null;
+  phone?: string | null;
 }) {
   const now = new Date();
+
+  // Build where clause - check if same contact method exists for same person
+  const contactConditions: { email?: string; phone?: string }[] = [];
+  if (params.email) contactConditions.push({ email: params.email });
+  if (params.phone) contactConditions.push({ phone: params.phone });
+
+  if (contactConditions.length === 0) return; // No contact to check
 
   const existing = await prisma.invitation.findFirst({
     where: {
       familyGraphId: params.familyGraphId,
       targetPersonId: params.targetPersonId,
-      email: params.email,
       status: "PENDING",
-      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+      OR: [
+        { expiresAt: null },
+        { expiresAt: { gt: now } },
+      ],
+      AND: [
+        { OR: contactConditions },
+      ],
     },
     select: {
       id: true,
