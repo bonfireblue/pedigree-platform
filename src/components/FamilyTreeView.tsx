@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState, useMemo } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 
 interface TreeNode {
   id: string;
@@ -8,6 +8,7 @@ interface TreeNode {
   photoUrl?: string | null;
   birthDate?: string | null;
   deathDate?: string | null;
+  sex?: string | null;
 }
 
 interface Props {
@@ -26,15 +27,15 @@ interface Props {
 
 const NODE_W = 240;
 const NODE_H = 74;
-const GAP_X = 60;
+const GAP_X = 40;
 const GAP_Y = 100;
 
-export default function TreeCanvas({ data, selectedId, focusKey, onSelect }: Props) {
+export default function FamilyTreeView({ data, selectedId, focusKey, onSelect }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
+  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
 
-  const nodeMap = useMemo(() => new Map(data.nodes.map((n) => [n.id, n])), [data.nodes]);
+  // Build maps for quick lookup
+  const nodeMap = new Map(data.nodes.map((n) => [n.id, n]));
 
   // Build adjacency lists
   const parents = new Map<string, string[]>();
@@ -62,80 +63,69 @@ export default function TreeCanvas({ data, selectedId, focusKey, onSelect }: Pro
   const layout = new Map<string, { x: number; y: number }>();
   const placed = new Set<string>();
 
-  function placeNode(id: string, x: number, y: number) {
-    if (placed.has(id)) return;
-    placed.add(id);
-    layout.set(id, { x, y });
-  }
-
   // Place center node
-  placeNode(data.centerId, 0, 0);
+  const centerId = data.centerId;
+  layout.set(centerId, { x: 0, y: 0 });
+  placed.add(centerId);
 
   // Place parents above
-  const centerParents = parents.get(data.centerId) ?? [];
+  const centerParents = parents.get(centerId) ?? [];
   centerParents.forEach((pid, i) => {
     const offsetX = (i - (centerParents.length - 1) / 2) * (NODE_W + GAP_X);
-    placeNode(pid, offsetX, -(NODE_H + GAP_Y));
-  });
-
-  // Place children below
-  const centerChildren = children.get(data.centerId) ?? [];
-  centerChildren.forEach((cid, i) => {
-    const offsetX = (i - (centerChildren.length - 1) / 2) * (NODE_W + GAP_X);
-    placeNode(cid, offsetX, NODE_H + GAP_Y);
+    layout.set(pid, { x: offsetX, y: -(NODE_H + GAP_Y) });
+    placed.add(pid);
   });
 
   // Place spouses to the right
-  const centerSpouses = spouses.get(data.centerId) ?? [];
+  const centerSpouses = spouses.get(centerId) ?? [];
   centerSpouses.forEach((sid, i) => {
-    placeNode(sid, (i + 1) * (NODE_W + GAP_X), 0);
+    layout.set(sid, { x: (i + 1) * (NODE_W + GAP_X), y: 0 });
+    placed.add(sid);
   });
 
-  // Build edges for rendering
-  const lines: { x1: number; y1: number; x2: number; y2: number; type: string }[] = [];
+  // Place children below
+  const centerChildren = children.get(centerId) ?? [];
+  centerChildren.forEach((cid, i) => {
+    const offsetX = (i - (centerChildren.length - 1) / 2) * (NODE_W + GAP_X);
+    layout.set(cid, { x: offsetX, y: NODE_H + GAP_Y });
+    placed.add(cid);
+  });
+
+  // Center view on focus
+  useEffect(() => {
+    if (svgRef.current) {
+      const rect = svgRef.current.getBoundingClientRect();
+      setTransform({ x: rect.width / 2, y: rect.height / 2, scale: 1 });
+    }
+  }, [focusKey]);
+
+  // Pan/zoom handlers
+  const onWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    if (e.ctrlKey) {
+      const newScale = Math.max(0.3, Math.min(2, transform.scale - e.deltaY * 0.001));
+      setTransform((t) => ({ ...t, scale: newScale }));
+    } else {
+      setTransform((t) => ({ ...t, x: t.x - e.deltaX, y: t.y - e.deltaY }));
+    }
+  }, [transform.scale]);
+
+  // Build lines for edges
+  const lines: { x1: number; y1: number; x2: number; y2: number; dashed: boolean }[] = [];
 
   for (const e of parentChildEdges) {
-    const fromPos = layout.get(e.parentId);
-    const toPos = layout.get(e.childId);
-    if (fromPos && toPos) {
-      lines.push({
-        x1: fromPos.x,
-        y1: fromPos.y + NODE_H / 2,
-        x2: toPos.x,
-        y2: toPos.y - NODE_H / 2,
-        type: "parent",
-      });
+    const from = layout.get(e.parentId);
+    const to = layout.get(e.childId);
+    if (from && to) {
+      lines.push({ x1: from.x, y1: from.y + NODE_H / 2, x2: to.x, y2: to.y - NODE_H / 2, dashed: false });
     }
   }
 
   for (const e of spouseEdges) {
-    const fromPos = layout.get(e.aId);
-    const toPos = layout.get(e.bId);
-    if (fromPos && toPos) {
-      lines.push({
-        x1: fromPos.x + NODE_W / 2,
-        y1: fromPos.y,
-        x2: toPos.x - NODE_W / 2,
-        y2: toPos.y,
-        type: "spouse",
-      });
-    }
-  }
-
-  // Center view on center node
-  useEffect(() => {
-    if (svgRef.current) {
-      const rect = svgRef.current.getBoundingClientRect();
-      setPan({ x: rect.width / 2, y: rect.height / 2 });
-    }
-  }, [focusKey]);
-
-  function onWheel(e: React.WheelEvent) {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      setZoom((z) => Math.max(0.25, Math.min(2, z - e.deltaY * 0.001)));
-    } else {
-      setPan((p) => ({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
+    const from = layout.get(e.aId);
+    const to = layout.get(e.bId);
+    if (from && to) {
+      lines.push({ x1: from.x + NODE_W / 2, y1: from.y, x2: to.x - NODE_W / 2, y2: to.y, dashed: true });
     }
   }
 
@@ -145,10 +135,10 @@ export default function TreeCanvas({ data, selectedId, focusKey, onSelect }: Pro
         ref={svgRef}
         width="100%"
         height="100%"
-        style={{ background: "#f8fafc" }}
+        style={{ background: "#fafafa" }}
         onWheel={onWheel}
       >
-        <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
+        <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}>
           {/* Edges */}
           <g>
             {lines.map((line, i) => (
@@ -158,9 +148,9 @@ export default function TreeCanvas({ data, selectedId, focusKey, onSelect }: Pro
                 y1={line.y1}
                 x2={line.x2}
                 y2={line.y2}
-                stroke={line.type === "spouse" ? "#f472b6" : "#94a3b8"}
+                stroke="#94a3b8"
                 strokeWidth={2}
-                strokeDasharray={line.type === "spouse" ? "5,5" : undefined}
+                strokeDasharray={line.dashed ? "6,4" : undefined}
               />
             ))}
           </g>
@@ -171,6 +161,7 @@ export default function TreeCanvas({ data, selectedId, focusKey, onSelect }: Pro
               const node = nodeMap.get(id);
               if (!node) return null;
               const isSelected = id === selectedId;
+              const isCenter = id === centerId;
 
               return (
                 <foreignObject
@@ -185,52 +176,58 @@ export default function TreeCanvas({ data, selectedId, focusKey, onSelect }: Pro
                     role="button"
                     tabIndex={0}
                     onClick={() => onSelect?.(id)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") onSelect?.(id);
-                    }}
+                    onKeyDown={(e) => e.key === "Enter" && onSelect?.(id)}
                     style={{
                       width: NODE_W,
                       height: NODE_H,
                       borderRadius: 14,
-                      border: isSelected ? "3px solid #3b82f6" : "1px solid #d1d5db",
-                      background: isSelected ? "#eff6ff" : "#ffffff",
-                      padding: 10,
+                      border: isSelected ? "3px solid #3b82f6" : isCenter ? "3px solid #2563eb" : "2px solid #e2e8f0",
+                      background: isCenter ? "#eff6ff" : "#fff",
                       cursor: "pointer",
-                      boxShadow: isSelected
-                        ? "0 0 0 4px rgba(59,130,246,0.25)"
-                        : "0 4px 12px rgba(15, 23, 42, 0.06)",
                       display: "flex",
                       alignItems: "center",
-                      gap: 10,
+                      padding: 8,
+                      gap: 8,
+                      boxShadow: isSelected ? "0 0 0 3px rgba(59,130,246,0.3)" : "0 1px 3px rgba(0,0,0,0.1)",
                     }}
                   >
+                    {/* Photo */}
                     <div
                       style={{
-                        width: 48,
-                        height: 48,
+                        width: 50,
+                        height: 50,
                         borderRadius: "50%",
                         background: "#e2e8f0",
                         flexShrink: 0,
                         overflow: "hidden",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                       }}
                     >
-                      {node.photoUrl && (
+                      {node.photoUrl ? (
                         <img
                           src={`/api/file?pathname=${encodeURIComponent(node.photoUrl)}`}
                           alt=""
                           style={{ width: "100%", height: "100%", objectFit: "cover" }}
                         />
+                      ) : (
+                        <span style={{ fontSize: 20, color: "#94a3b8" }}>
+                          {node.fullName?.charAt(0)?.toUpperCase() || "?"}
+                        </span>
                       )}
                     </div>
-                    <div style={{ overflow: "hidden" }}>
+
+                    {/* Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <div
                         style={{
                           fontWeight: 600,
                           fontSize: 14,
+                          color: "#1e293b",
                           whiteSpace: "nowrap",
                           overflow: "hidden",
                           textOverflow: "ellipsis",
-                          color: "#1e293b",
                         }}
                       >
                         {node.fullName || "Unnamed"}
