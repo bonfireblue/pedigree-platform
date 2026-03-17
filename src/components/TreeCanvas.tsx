@@ -22,17 +22,14 @@ interface TreeNode {
   isPrivate?: boolean;
 }
 
-interface Edge {
-  from: string;
-  to: string;
-  type: string;
-}
-
 interface Props {
   data: {
     centerId: string;
     nodes: TreeNode[];
-    edges: Edge[];
+    edges: {
+      parentChild: { parentId: string; childId: string }[];
+      spouse: { aId: string; bId: string }[];
+    };
   };
   selectedId?: string | null;
   focusKey?: number;
@@ -51,18 +48,20 @@ export default function TreeCanvas({ data, selectedId, focusKey, onSelect }: Pro
   const children = new Map<string, string[]>();
   const spouses = new Map<string, string[]>();
 
-  for (const e of data.edges ?? []) {
-    if (e.type === "parent") {
-      if (!children.has(e.from)) children.set(e.from, []);
-      children.get(e.from)!.push(e.to);
-      if (!parents.has(e.to)) parents.set(e.to, []);
-      parents.get(e.to)!.push(e.from);
-    } else if (e.type === "spouse") {
-      if (!spouses.has(e.from)) spouses.set(e.from, []);
-      if (!spouses.has(e.to)) spouses.set(e.to, []);
-      spouses.get(e.from)!.push(e.to);
-      spouses.get(e.to)!.push(e.from);
-    }
+  // Process parent-child edges
+  for (const e of data.edges?.parentChild ?? []) {
+    if (!children.has(e.parentId)) children.set(e.parentId, []);
+    children.get(e.parentId)!.push(e.childId);
+    if (!parents.has(e.childId)) parents.set(e.childId, []);
+    parents.get(e.childId)!.push(e.parentId);
+  }
+
+  // Process spouse edges
+  for (const e of data.edges?.spouse ?? []) {
+    if (!spouses.has(e.aId)) spouses.set(e.aId, []);
+    if (!spouses.has(e.bId)) spouses.set(e.bId, []);
+    spouses.get(e.aId)!.push(e.bId);
+    spouses.get(e.bId)!.push(e.aId);
   }
 
   // Build layout - position nodes in a tree structure
@@ -122,16 +121,33 @@ export default function TreeCanvas({ data, selectedId, focusKey, onSelect }: Pro
 
   // Build edges for rendering
   const lines: { x1: number; y1: number; x2: number; y2: number; type: string }[] = [];
-  for (const e of data.edges ?? []) {
-    const fromPos = layout.get(e.from);
-    const toPos = layout.get(e.to);
+  
+  // Parent-child edges
+  for (const e of data.edges?.parentChild ?? []) {
+    const fromPos = layout.get(e.parentId);
+    const toPos = layout.get(e.childId);
     if (fromPos && toPos) {
       lines.push({
         x1: fromPos.x,
         y1: fromPos.y + NODE_H / 2,
         x2: toPos.x,
         y2: toPos.y + NODE_H / 2,
-        type: e.type,
+        type: "parent",
+      });
+    }
+  }
+
+  // Spouse edges
+  for (const e of data.edges?.spouse ?? []) {
+    const fromPos = layout.get(e.aId);
+    const toPos = layout.get(e.bId);
+    if (fromPos && toPos) {
+      lines.push({
+        x1: fromPos.x,
+        y1: fromPos.y + NODE_H / 2,
+        x2: toPos.x,
+        y2: toPos.y + NODE_H / 2,
+        type: "spouse",
       });
     }
   }
