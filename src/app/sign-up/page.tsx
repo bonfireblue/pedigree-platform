@@ -54,7 +54,7 @@ export default function SignUpPage() {
         return;
       }
 
-      router.push("/app");
+      router.push("/pedigree");
     } catch (err: any) {
       setError(err?.message ?? "Sign up failed");
     } finally {

@@ -43,7 +43,7 @@ export default function AcceptInviteClient() {
 
       setStage("done");
       setMsg("Invitation accepted. Redirecting…");
-      setTimeout(() => (window.location.href = "/app"), 700);
+      setTimeout(() => (window.location.href = "/pedigree"), 700);
       return;
     }
 

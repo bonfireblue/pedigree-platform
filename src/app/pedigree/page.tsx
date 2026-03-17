@@ -807,17 +807,7 @@ async function sendInvite() {
                 Recenter
               </button>
 
-              <a
-                href="/app"
-                style={{
-                  fontSize: 13,
-                  color: "#64748b",
-                  textDecoration: "none",
-                  fontWeight: 700,
-                }}
-              >
-                Admin view
-              </a>
+              
             </div>
           </div>
 
@@ -1034,6 +1024,7 @@ async function sendInvite() {
                         border: "1px solid #d1d5db",
                         padding: "10px 12px",
                         background: "#ffffff",
+                        color: "#111827",
                       }}
                     >
                       <option value="">Prefer not to say</option>

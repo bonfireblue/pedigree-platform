@@ -30,7 +30,7 @@ export default function SignInPage() {
       return;
     }
 
-    router.push("/app");
+    router.push("/pedigree");
   }
 
   return (
