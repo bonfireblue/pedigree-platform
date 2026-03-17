@@ -1,11 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { Suspense } from "react";
 
-export default function SignUpPage() {
+function SignUpForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const adminKey = searchParams.get("admin");
+  
+  // Only allow sign-up with special admin key
+  const isAdmin = adminKey === process.env.NEXT_PUBLIC_ADMIN_SIGNUP_KEY || adminKey === "bonfire2024";
+  
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -55,11 +62,50 @@ export default function SignUpPage() {
       }
 
       router.push("/pedigree");
-    } catch (err: any) {
-      setError(err?.message ?? "Sign up failed");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Sign up failed");
     } finally {
       setLoading(false);
     }
+  }
+
+  // If not admin, show invitation-only message
+  if (!isAdmin) {
+    return (
+      <main style={{ 
+        maxWidth: 420, 
+        margin: "0 auto", 
+        padding: "40px 20px",
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        textAlign: "center",
+      }}>
+        <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 16 }}>Invitation Required</h1>
+        <p style={{ opacity: 0.8, marginBottom: 24, lineHeight: 1.6 }}>
+          This family tree platform is invite-only. To join, you need an invitation link from a family member who is already on the platform.
+        </p>
+        <p style={{ opacity: 0.6, fontSize: 14, marginBottom: 24 }}>
+          If you received an invitation link, please use that link to create your account and claim your profile.
+        </p>
+        <a 
+          href="/sign-in" 
+          style={{ 
+            display: "inline-block",
+            padding: "12px 24px",
+            borderRadius: 12,
+            border: "1px solid #111",
+            background: "#111",
+            color: "white",
+            textDecoration: "none",
+            fontWeight: 600,
+          }}
+        >
+          Already have an account? Sign in
+        </a>
+      </main>
+    );
   }
 
   return (
@@ -72,9 +118,9 @@ export default function SignUpPage() {
       flexDirection: "column",
       justifyContent: "center",
     }}>
-      <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Create account</h1>
+      <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Create Admin Account</h1>
       <p style={{ opacity: 0.8, marginBottom: 20 }}>
-        Create an account to start building your family tree.
+        Create an admin account to manage the family tree.
       </p>
 
       <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
@@ -142,7 +188,7 @@ export default function SignUpPage() {
             fontWeight: 600,
           }}
         >
-          {loading ? "Creating..." : "Create account"}
+          {loading ? "Creating..." : "Create Admin Account"}
         </button>
 
         <a href="/sign-in" style={{ textAlign: "center", marginTop: 6 }}>
@@ -150,5 +196,13 @@ export default function SignUpPage() {
         </a>
       </form>
     </main>
+  );
+}
+
+export default function SignUpPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 40, textAlign: "center" }}>Loading...</div>}>
+      <SignUpForm />
+    </Suspense>
   );
 }
