@@ -256,9 +256,26 @@ setEditFirstName(detail.person.firstName ?? "");
   );
 
   useEffect(() => {
-    if (initialCenterId) {
-      void loadTree(initialCenterId);
+    async function initializeTree() {
+      if (initialCenterId) {
+        // If centerId is in URL, use it
+        void loadTree(initialCenterId);
+      } else {
+        // Otherwise, fetch user's claimed person and center on them
+        try {
+          const res = await fetch("/api/me");
+          if (res.ok) {
+            const data = await res.json();
+            if (data.claimedPersonId) {
+              void loadTree(data.claimedPersonId);
+            }
+          }
+        } catch {
+          // Silently fail - user will see "Missing centerId" message
+        }
+      }
     }
+    void initializeTree();
   }, [initialCenterId, loadTree]);
 
     const selectPersonInCurrentTree = useCallback(

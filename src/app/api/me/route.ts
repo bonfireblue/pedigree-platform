@@ -60,9 +60,19 @@ export async function GET() {
     role: membership.role,
   });
 
+  // Get the person claimed by this user (if any)
+  const claimedPersonRows = await sql`
+    SELECT id FROM "Person"
+    WHERE "claimedByUserId" = ${me.id}
+      AND "familyGraphId" = ${membership.familyGraphId}
+    LIMIT 1
+  `;
+  const claimedPersonId = claimedPersonRows.length > 0 ? claimedPersonRows[0].id : null;
+
   return NextResponse.json({
     user: { id: me.id, email: me.email },
     membership,
     canInvite,
+    claimedPersonId,
   });
 }
