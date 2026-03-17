@@ -211,29 +211,32 @@ export async function PATCH(req: Request, ctx: Ctx) {
       return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
     }
 
-    console.log("[v0-debug] PATCH body received:", JSON.stringify(parsed.json));
-    const data = buildPersonPatch(parsed.json);
-    console.log("[v0-debug] buildPersonPatch result:", JSON.stringify(data));
+    // Simplified direct update - bypass buildPersonPatch
+    const body = parsed.json;
+    
+    // Build SET clause with explicit fields
+    const updates: string[] = [];
+    const vals: unknown[] = [];
+    let idx = 1;
 
-    // Build dynamic SET clause
-    const setClauses: string[] = [];
-    const values: unknown[] = [];
-    let paramIndex = 1;
+    if (body.firstName !== undefined) { updates.push(`"firstName" = $${idx++}`); vals.push(body.firstName); }
+    if (body.lastName !== undefined) { updates.push(`"lastName" = $${idx++}`); vals.push(body.lastName); }
+    if (body.fullName !== undefined) { updates.push(`"fullName" = $${idx++}`); vals.push(body.fullName); }
+    if (body.birthDate !== undefined) { updates.push(`"birthDate" = $${idx++}`); vals.push(body.birthDate); }
+    if (body.deathDate !== undefined) { updates.push(`"deathDate" = $${idx++}`); vals.push(body.deathDate); }
+    if (body.grewUpLocation !== undefined) { updates.push(`"grewUpLocation" = $${idx++}`); vals.push(body.grewUpLocation); }
+    if (body.occupation !== undefined) { updates.push(`"occupation" = $${idx++}`); vals.push(body.occupation); }
+    if (body.proudOf !== undefined) { updates.push(`"proudOf" = $${idx++}`); vals.push(body.proudOf); }
+    if (body.interests !== undefined) { updates.push(`"interests" = $${idx++}`); vals.push(body.interests); }
+    if (body.photoUrl !== undefined) { updates.push(`"photoUrl" = $${idx++}`); vals.push(body.photoUrl); }
+    if (body.isPrivate !== undefined) { updates.push(`"isPrivate" = $${idx++}`); vals.push(body.isPrivate); }
+    if (body.bio !== undefined) { updates.push(`"bio" = $${idx++}`); vals.push(body.bio); }
+    if (body.location !== undefined) { updates.push(`"location" = $${idx++}`); vals.push(body.location); }
 
-    for (const [key, value] of Object.entries(data)) {
-      setClauses.push(`"${key}" = $${paramIndex}`);
-      values.push(value);
-      paramIndex++;
-    }
-
-    console.log("[v0-debug] SET clauses:", setClauses);
-
-    if (setClauses.length > 0) {
-      values.push(id);
-      const query = `UPDATE "Person" SET ${setClauses.join(", ")} WHERE id = $${paramIndex}`;
-      console.log("[v0-debug] Executing query:", query);
-      await sql.unsafe(query, values);
-      console.log("[v0-debug] Query executed successfully");
+    if (updates.length > 0) {
+      vals.push(id);
+      const query = `UPDATE "Person" SET ${updates.join(", ")} WHERE id = $${idx}`;
+      await sql.unsafe(query, vals);
     }
 
     const updatedRows = await sql`
