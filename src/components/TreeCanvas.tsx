@@ -51,7 +51,7 @@ export default function TreeCanvas({ data, selectedId, focusKey, onSelect }: Pro
   const children = new Map<string, string[]>();
   const spouses = new Map<string, string[]>();
 
-  for (const e of data.edges) {
+  for (const e of data.edges ?? []) {
     if (e.type === "parent") {
       if (!children.has(e.from)) children.set(e.from, []);
       children.get(e.from)!.push(e.to);
@@ -122,7 +122,7 @@ export default function TreeCanvas({ data, selectedId, focusKey, onSelect }: Pro
 
   // Build edges for rendering
   const lines: { x1: number; y1: number; x2: number; y2: number; type: string }[] = [];
-  for (const e of data.edges) {
+  for (const e of data.edges ?? []) {
     const fromPos = layout.get(e.from);
     const toPos = layout.get(e.to);
     if (fromPos && toPos) {
