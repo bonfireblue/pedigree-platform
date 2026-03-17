@@ -153,6 +153,21 @@ export async function GET(req: Request, ctx: Ctx) {
     .filter((p: PersonRow) => canViewPerson(me.id, me.isAdmin, membership.role, p))
     .map(slim);
 
+  // Get siblings (people who share at least one parent with this person)
+  const siblingRows = await sql`
+    SELECT DISTINCT p.id, p."fullName", p."createdAt", p."isPrivate", p."claimedByUserId",
+           p."createdById", p."deletedAt"
+    FROM "ParentChild" pc1
+    JOIN "ParentChild" pc2 ON pc1."parentId" = pc2."parentId"
+    JOIN "Person" p ON pc2."childId" = p.id
+    WHERE pc1."childId" = ${id}
+      AND pc2."childId" != ${id}
+  `;
+  const siblings = siblingRows
+    .filter((p: PersonRow) => !p.deletedAt)
+    .filter((p: PersonRow) => canViewPerson(me.id, me.isAdmin, membership.role, p))
+    .map(slim);
+
   // Check if current user can vouch for this person
   let canVouch = false;
   if (person.claimedByUserId && !person.isVerified) {
@@ -204,6 +219,7 @@ export async function GET(req: Request, ctx: Ctx) {
     parents,
     children,
     spouses,
+    siblings,
     canVouch,
   });
 }

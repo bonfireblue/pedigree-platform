@@ -65,6 +65,7 @@ type PersonDetail = {
   parents: PersonLite[];
   children: PersonLite[];
   spouses: PersonLite[];
+  siblings: PersonLite[];
   canVouch?: boolean; // Whether current user can vouch for this person
 };
 
@@ -1511,6 +1512,12 @@ async function sendInvite() {
             <RelationshipSection
               title="Children"
               people={personDetail?.children ?? []}
+              onSelect={(id) => void selectPersonInCurrentTree(id)}
+            />
+
+            <RelationshipSection
+              title="Siblings"
+              people={personDetail?.siblings ?? []}
               onSelect={(id) => void selectPersonInCurrentTree(id)}
             />
           </div>
