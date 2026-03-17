@@ -863,7 +863,7 @@ async function sendInvite() {
             flexDirection: "column",
             gap: 16,
             overflowY: "auto",
-            maxHeight: "100vh",
+            maxHeight: "calc(100vh - 32px)",
             paddingBottom: 24,
           }}
         >
@@ -1426,7 +1426,7 @@ async function sendInvite() {
             </div>
           </div>
 
-          <div style={{ ...sectionCardStyle(), padding: 16, minHeight: 0, overflow: "auto" }}>
+          <div style={{ ...sectionCardStyle(), padding: 16, flexShrink: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.5, color: "#64748b" }}>
               RELATIONSHIPS
             </div>
