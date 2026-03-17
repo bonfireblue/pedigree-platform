@@ -408,6 +408,16 @@ setEditFirstName(detail.person.firstName ?? "");
         await linkParentChild(selectedId, targetId);
       } else if (relMode === "SPOUSE") {
         await linkSpouse(selectedId, targetId);
+        // When linking spouses, also link the selected person's children to the new spouse
+        if (personDetail?.children && personDetail.children.length > 0) {
+          for (const child of personDetail.children) {
+            try {
+              await linkParentChild(targetId, child.id);
+            } catch {
+              // Ignore errors if relationship already exists
+            }
+          }
+        }
       } else if (relMode === "SIBLING") {
         // Link sibling by sharing parents
         if (!personDetail?.parents || personDetail.parents.length === 0) {
@@ -445,6 +455,16 @@ setEditFirstName(detail.person.firstName ?? "");
         await linkParentChild(selectedId, newId);
       } else if (relMode === "SPOUSE") {
         await linkSpouse(selectedId, newId);
+        // When linking spouses, also link the selected person's children to the new spouse
+        if (personDetail?.children && personDetail.children.length > 0) {
+          for (const child of personDetail.children) {
+            try {
+              await linkParentChild(newId, child.id);
+            } catch {
+              // Ignore errors if relationship already exists
+            }
+          }
+        }
       } else if (relMode === "SIBLING") {
         // Link sibling by sharing parents
         if (!personDetail?.parents || personDetail.parents.length === 0) {
@@ -606,6 +626,36 @@ async function sendInvite() {
       await loadTree(selectedId);
     } finally {
       setInviteBusy(false);
+    }
+  }
+
+  async function deleteParentChildRelationship(parentId: string, childId: string) {
+    if (!confirm("Are you sure you want to remove this parent-child relationship?")) {
+      return;
+    }
+    
+    setError(null);
+    
+    try {
+      const res = await fetch("/api/relationships/parent-child", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ parentId, childId }),
+      });
+      
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data?.error ?? `DELETE_FAILED_${res.status}`);
+        return;
+      }
+      
+      // Refresh the person detail to update relationships
+      if (selectedId) {
+        await loadPersonDetail(selectedId);
+        await loadTree(selectedId);
+      }
+    } catch (e: unknown) {
+      setError(String(e instanceof Error ? e.message : e));
     }
   }
 
@@ -1041,14 +1091,14 @@ async function sendInvite() {
                         borderRadius: 12,
                         border: "1px solid #d1d5db",
                         padding: "10px 12px",
-                        background: "#ffffff",
-                        color: "#111827",
+                        background: "#111827",
+                        color: "#ffffff",
                       }}
                     >
-                      <option value="">Prefer not to say</option>
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                      <option value="other">Other</option>
+                      <option value="" style={{ background: "#111827", color: "#ffffff" }}>Prefer not to say</option>
+                      <option value="male" style={{ background: "#111827", color: "#ffffff" }}>Male</option>
+                      <option value="female" style={{ background: "#111827", color: "#ffffff" }}>Female</option>
+                      <option value="other" style={{ background: "#111827", color: "#ffffff" }}>Other</option>
                     </select>
                   </div>
 
@@ -1501,6 +1551,7 @@ async function sendInvite() {
               title="Parents"
               people={personDetail?.parents ?? []}
               onSelect={(id) => void selectPersonInCurrentTree(id)}
+              onDelete={selectedId ? (parentId) => void deleteParentChildRelationship(parentId, selectedId) : undefined}
             />
 
             <RelationshipSection
@@ -1513,6 +1564,7 @@ async function sendInvite() {
               title="Children"
               people={personDetail?.children ?? []}
               onSelect={(id) => void selectPersonInCurrentTree(id)}
+              onDelete={selectedId ? (childId) => void deleteParentChildRelationship(selectedId, childId) : undefined}
             />
 
             <RelationshipSection
@@ -1531,10 +1583,12 @@ function RelationshipSection({
   title,
   people,
   onSelect,
+  onDelete,
 }: {
   title: string;
   people: PersonLite[];
   onSelect: (id: string) => void;
+  onDelete?: (id: string) => void;
 }) {
   return (
     <div style={{ marginTop: 16 }}>
@@ -1557,22 +1611,53 @@ function RelationshipSection({
       ) : (
         <div style={{ display: "grid", gap: 8 }}>
           {people.map((p) => (
-            <button
+            <div
               key={p.id}
-              type="button"
-              onClick={() => onSelect(p.id)}
-              style={drawerListButtonStyle()}
+              style={{
+                ...drawerListButtonStyle(),
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-                <div style={{ fontWeight: 800, color: "#111827" }}>{p.fullName}</div>
-                <div style={badgeStyle(Boolean(p.claimedByUserId))}>
-                  {p.claimedByUserId ? "Claimed" : "Unclaimed"}
+              <button
+                type="button"
+                onClick={() => onSelect(p.id)}
+                style={{ flex: 1, textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer" }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                  <div style={{ fontWeight: 800, color: "#111827" }}>{p.fullName}</div>
+                  <div style={badgeStyle(Boolean(p.claimedByUserId))}>
+                    {p.claimedByUserId ? "Claimed" : "Unclaimed"}
+                  </div>
                 </div>
-              </div>
-              <div style={{ marginTop: 4, fontSize: 12, color: "#64748b" }}>
-  {p.isPrivate ? "Private" : "Public"}
-</div>
-            </button>
+                <div style={{ marginTop: 4, fontSize: 12, color: "#64748b" }}>
+                  {p.isPrivate ? "Private" : "Public"}
+                </div>
+              </button>
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(p.id);
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    padding: 4,
+                    cursor: "pointer",
+                    color: "#dc2626",
+                    fontSize: 18,
+                    lineHeight: 1,
+                    flexShrink: 0,
+                  }}
+                  title="Remove relationship"
+                >
+                  ×
+                </button>
+              )}
+            </div>
           ))}
         </div>
       )}
