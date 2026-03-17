@@ -10,7 +10,7 @@ interface Props {
 }
 
 export function TreeView({ graph, onSelectPerson, onInvite, canInvite }: Props) {
-  if (!graph || graph.people.length === 0) {
+  if (!graph || !graph.people || graph.people.length === 0) {
     return (
       <div style={{ padding: 24, textAlign: "center", color: "#64748b" }}>
         No family members yet. Add someone to get started.
