@@ -235,14 +235,12 @@ export function PedigreeCanvas({
         <g transform={`translate(${vp.tx},${vp.ty}) scale(${vp.k})`}>
           <g>
             {layout.edges.map((e, idx) => (
-              <line
+              <path
                 key={idx}
-                x1={e.x1}
-                y1={e.y1}
-                x2={e.x2}
-                y2={e.y2}
-                stroke="#cbd5e1"
-                strokeWidth={2}
+                d={e.pathD}
+                stroke="#1f2937"
+                strokeWidth={1.5}
+                fill="none"
               />
             ))}
           </g>
