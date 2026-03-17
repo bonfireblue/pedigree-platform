@@ -1498,7 +1498,7 @@ function RelationshipSection({
                 </div>
               </div>
               <div style={{ marginTop: 4, fontSize: 12, color: "#64748b" }}>
-  {p.isPrivate ? "Private" : "Public"} · {p.id}
+  {p.isPrivate ? "Private" : "Public"}
 </div>
             </button>
           ))}
