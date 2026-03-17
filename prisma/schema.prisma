@@ -114,7 +114,8 @@ model Invitation {
   createdAt DateTime @default(now())
 
   token  String           @unique
-  email  String
+  email  String?
+  phone  String?
   status InvitationStatus @default(PENDING)
 
   familyGraphId String
@@ -137,6 +138,7 @@ model Invitation {
   @@index([targetPersonId])
   @@index([inviterUserId])
   @@index([email])
+  @@index([phone])
 }
 
 model Vouch {
@@ -209,6 +211,9 @@ familyGraph   FamilyGraph @relation(fields: [familyGraphId], references: [id], o
   // Claiming (exactly one user per node)
   claimedByUserId String? @unique
   claimedBy       User?   @relation("ClaimedPerson", fields: [claimedByUserId], references: [id], onDelete: SetNull)
+
+  // Verification status - true if verified by vouch or auto-verified
+  isVerified Boolean @default(false)
 
   // Inverse for Invitation.targetPerson
   invitations Invitation[] @relation("PersonInvitations")
