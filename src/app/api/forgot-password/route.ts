@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { findUserByEmail, createPasswordResetToken, sql } from "@/lib/neon-db";
 import crypto from "crypto";
+import { sendPasswordResetEmail } from "@/lib/email";
 
 export async function POST(req: Request) {
   try {
@@ -31,12 +32,20 @@ export async function POST(req: Request) {
     // Create new token
     await createPasswordResetToken(user.id, token, expiresAt);
 
-    // In production, you would send an email here with the reset link
-    // For now, we'll log it for development purposes
     const resetUrl = `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/reset-password?token=${token}`;
-    console.log(`Password reset link for ${email}: ${resetUrl}`);
 
-    return NextResponse.json({ ok: true, resetUrl });
+    // Send password reset email
+    try {
+      await sendPasswordResetEmail({
+        to: email,
+        resetUrl,
+      });
+    } catch (emailError) {
+      console.error("Failed to send password reset email:", emailError);
+      // Still return success to prevent email enumeration
+    }
+
+    return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("Forgot password error:", error);
     return NextResponse.json(

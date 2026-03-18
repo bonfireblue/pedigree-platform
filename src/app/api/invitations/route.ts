@@ -14,6 +14,7 @@ import {
   normalizeEmail,
   normalizePhone,
 } from "@/lib/invitationRules";
+import { sendInvitationEmail } from "@/lib/email";
 
 export async function POST(req: Request) {
   try {
@@ -110,6 +111,33 @@ export async function POST(req: Request) {
 
     const inviteUrl = `${process.env.NEXTAUTH_URL}/accept-invite?token=${invitation.token}`;
 
+    // Send invitation email if email was provided
+    let emailSent = false;
+    if (email) {
+      try {
+        // Get inviter name and target person name for the email
+        const inviter = await prisma.person.findFirst({
+          where: { claimedByUserId: me.id },
+          select: { fullName: true },
+        });
+        const targetPerson = await prisma.person.findUnique({
+          where: { id: targetPersonId },
+          select: { fullName: true },
+        });
+
+        await sendInvitationEmail({
+          to: email,
+          inviterName: inviter?.fullName || me.email || "A family member",
+          personName: targetPerson?.fullName || "a family member",
+          inviteUrl,
+        });
+        emailSent = true;
+      } catch (emailError) {
+        console.error("Failed to send invitation email:", emailError);
+        // Don't fail the request - invitation was created successfully
+      }
+    }
+
     return NextResponse.json({
       invitationId: invitation.id,
       inviteUrl,
@@ -117,6 +145,7 @@ export async function POST(req: Request) {
       phone: invitation.phone,
       targetPersonId: invitation.targetPersonId,
       expiresAt: invitation.expiresAt?.toISOString() ?? null,
+      emailSent,
     });
   } catch (error) {
     if (error instanceof InvitationError) {
