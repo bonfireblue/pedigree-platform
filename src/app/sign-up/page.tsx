@@ -40,7 +40,7 @@ function SignUpForm() {
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, name: name || undefined }),
       });
 
       if (!res.ok) {

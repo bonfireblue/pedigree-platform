@@ -1,0 +1,1 @@
+This directory is intentionally empty. The route has been moved to /api/family-member/[id]
