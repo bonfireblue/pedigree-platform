@@ -8,38 +8,43 @@ const sql = neon(process.env.DATABASE_URL!);
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
+    console.log("[v0] save-profile session:", session?.user?.email);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
+    console.log("[v0] save-profile body:", JSON.stringify(body, null, 2));
     const { personId, firstName, lastName, fullName, gender, birthDate, deathDate, grewUpLocation, occupation, proudOf, interests, photoUrl } = body;
 
     if (!personId) {
       return NextResponse.json({ error: "Missing personId" }, { status: 400 });
     }
 
-    // Direct SQL update
-    await sql`
+    // Direct SQL update with COALESCE to preserve existing values when null is passed
+    const result = await sql`
       UPDATE "Person"
       SET 
-        "firstName" = ${firstName},
-        "lastName" = ${lastName},
-        "fullName" = ${fullName},
+        "firstName" = COALESCE(${firstName}, "firstName"),
+        "lastName" = COALESCE(${lastName}, "lastName"),
+        "fullName" = COALESCE(${fullName}, "fullName"),
         "gender" = ${gender},
-        "birthDate" = ${birthDate},
-        "deathDate" = ${deathDate},
+        "birthDate" = ${birthDate ? birthDate : null}::date,
+        "deathDate" = ${deathDate ? deathDate : null}::date,
         "grewUpLocation" = ${grewUpLocation},
         "occupation" = ${occupation},
         "proudOf" = ${proudOf},
         "interests" = ${interests},
-        "photoUrl" = ${photoUrl}
+        "photoUrl" = ${photoUrl},
+        "updatedAt" = NOW()
       WHERE id = ${personId}
+      RETURNING id, "fullName", "gender", "birthDate"
     `;
+    console.log("[v0] save-profile result:", result);
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, updated: result[0] });
   } catch (error) {
-    console.error("Save profile error:", error);
-    return NextResponse.json({ error: "Failed to save" }, { status: 500 });
+    console.error("[v0] Save profile error:", error);
+    return NextResponse.json({ error: "Failed to save: " + (error instanceof Error ? error.message : String(error)) }, { status: 500 });
   }
 }
