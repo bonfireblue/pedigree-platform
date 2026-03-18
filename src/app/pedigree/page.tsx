@@ -145,6 +145,7 @@ export default function PedigreePage() {
   const [error, setError] = useState<string | null>(null);
   const [loadingTree, setLoadingTree] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [initializing, setInitializing] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -260,7 +261,8 @@ setEditFirstName(detail.person.firstName ?? "");
     async function initializeTree() {
       if (initialCenterId) {
         // If centerId is in URL, use it
-        void loadTree(initialCenterId);
+        await loadTree(initialCenterId);
+        setInitializing(false);
       } else {
         // Otherwise, fetch user's claimed person and center on them
         try {
@@ -268,11 +270,13 @@ setEditFirstName(detail.person.firstName ?? "");
           if (res.ok) {
             const data = await res.json();
             if (data.claimedPersonId) {
-              void loadTree(data.claimedPersonId);
+              await loadTree(data.claimedPersonId);
             }
           }
         } catch {
-          // Silently fail - user will see "Missing centerId" message
+          // Silently fail
+        } finally {
+          setInitializing(false);
         }
       }
     }
@@ -705,6 +709,49 @@ async function sendInvite() {
     }
   }
 
+  async function deletePerson() {
+    if (!selectedId || !personDetail) return;
+    
+    const personName = personDetail.person.fullName || "this person";
+    if (!confirm(`Delete "${personName}"?\n\nThis will permanently remove this person and all their relationships. This action cannot be undone.`)) {
+      return;
+    }
+    
+    setError(null);
+    
+    try {
+      const res = await fetch(`/api/people/${selectedId}`, {
+        method: "DELETE",
+      });
+      
+      const data = await res.json().catch(() => ({}));
+      
+      if (!res.ok) {
+        if (data?.error === "CANNOT_DELETE_CLAIMED_PERSON") {
+          setError("Cannot delete a claimed person. Only unclaimed profiles can be deleted.");
+        } else if (data?.error === "ONLY_CREATOR_CAN_DELETE") {
+          setError("You can only delete people you created.");
+        } else {
+          setError(data?.error ?? `DELETE_FAILED_${res.status}`);
+        }
+        return;
+      }
+      
+      // Navigate back to current user's tree after deletion
+      setSelectedId("");
+      setPersonDetail(null);
+      const meRes = await fetch("/api/me");
+      if (meRes.ok) {
+        const meData = await meRes.json();
+        if (meData.claimedPersonId) {
+          await loadTree(meData.claimedPersonId);
+        }
+      }
+    } catch (e: unknown) {
+      setError(String(e instanceof Error ? e.message : e));
+    }
+  }
+
   async function vouchForPerson() {
     if (!selectedId) return;
     
@@ -933,11 +980,13 @@ async function sendInvite() {
               position: "relative",
             }}
           >
-            {!initialCenterId && !selectedId ? (
+            {initializing ? (
+              <div style={{ padding: 24 }}>Loading...</div>
+            ) : !selectedId && !treeData ? (
               <div style={{ padding: 24 }}>
-                <div style={{ fontSize: 20, fontWeight: 800 }}>Missing centerId</div>
+                <div style={{ fontSize: 20, fontWeight: 800 }}>No pedigree found</div>
                 <div style={{ marginTop: 8, color: "#64748b" }}>
-                  Open a person first, then enter pedigree view.
+                  You haven&apos;t claimed a person profile yet. Accept an invitation to get started.
                 </div>
               </div>
             ) : loadingTree && !treeData ? (
@@ -1293,6 +1342,22 @@ async function sendInvite() {
                         }}
                       >
                         {vouchBusy ? "Vouching..." : "Verify This Person"}
+                      </button>
+                    )}
+
+                    {/* Delete button - only show for unclaimed persons created by current user */}
+                    {!selectedClaimed && (
+                      <button
+                        type="button"
+                        onClick={() => void deletePerson()}
+                        style={{
+                          ...actionButtonStyle(false),
+                          background: "#fef2f2",
+                          color: "#dc2626",
+                          border: "1px solid #fca5a5",
+                        }}
+                      >
+                        Delete Person
                       </button>
                     )}
                   </div>

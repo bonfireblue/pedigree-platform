@@ -267,6 +267,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     if (body.firstName !== undefined) { updates.push(`"firstName" = $${idx++}`); vals.push(body.firstName); }
     if (body.lastName !== undefined) { updates.push(`"lastName" = $${idx++}`); vals.push(body.lastName); }
     if (body.fullName !== undefined) { updates.push(`"fullName" = $${idx++}`); vals.push(body.fullName); }
+    if (body.gender !== undefined) { updates.push(`"gender" = $${idx++}`); vals.push(body.gender); }
     if (body.birthDate !== undefined) { updates.push(`"birthDate" = $${idx++}`); vals.push(body.birthDate); }
     if (body.deathDate !== undefined) { updates.push(`"deathDate" = $${idx++}`); vals.push(body.deathDate); }
     if (body.grewUpLocation !== undefined) { updates.push(`"grewUpLocation" = $${idx++}`); vals.push(body.grewUpLocation); }
@@ -324,6 +325,57 @@ export async function PATCH(req: Request, ctx: Ctx) {
     }
 
     console.error("PATCH /api/people/[id] failed", error);
+    return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request, ctx: Ctx) {
+  const lim = rateLimit({ key: `people_delete:${clientKey(req)}`, limit: 30, windowMs: 60_000 });
+  if (!lim.ok) return NextResponse.json({ error: "RATE_LIMIT" }, { status: 429 });
+
+  try {
+    const me = await requireMe();
+    if (!me) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+
+    const { id } = await ctx.params;
+
+    const existingRows = await sql`
+      SELECT id, "createdById", "claimedByUserId", "familyGraphId", "deletedAt"
+      FROM "Person"
+      WHERE id = ${id}
+    `;
+
+    if (existingRows.length === 0 || existingRows[0].deletedAt) {
+      return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+    }
+
+    const existing = existingRows[0];
+
+    // Only allow deletion if:
+    // 1. The person is NOT claimed (no user has claimed this profile)
+    // 2. The current user created this person
+    if (existing.claimedByUserId) {
+      return NextResponse.json({ error: "CANNOT_DELETE_CLAIMED_PERSON" }, { status: 403 });
+    }
+
+    if (existing.createdById !== me.id && !me.isAdmin) {
+      return NextResponse.json({ error: "ONLY_CREATOR_CAN_DELETE" }, { status: 403 });
+    }
+
+    // Soft delete the person
+    await sql`
+      UPDATE "Person"
+      SET "deletedAt" = NOW(), "deletedByUserId" = ${me.id}, "purgeAfter" = NOW() + INTERVAL '30 days'
+      WHERE id = ${id}
+    `;
+
+    // Also remove all relationships involving this person
+    await sql`DELETE FROM "ParentChild" WHERE "parentId" = ${id} OR "childId" = ${id}`;
+    await sql`DELETE FROM "Spouse" WHERE "aId" = ${id} OR "bId" = ${id}`;
+
+    return NextResponse.json({ success: true, message: "Person deleted" });
+  } catch (error) {
+    console.error("DELETE /api/people/[id] failed", error);
     return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
   }
 }
