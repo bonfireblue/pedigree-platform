@@ -1,4 +1,3 @@
-// Family member API - GET and PATCH for individual person records
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { rateLimit, clientKey } from "@/lib/rateLimit";
@@ -8,7 +7,7 @@ import { requireMe } from "@/lib/authz";
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function GET(req: Request, ctx: Ctx) {
-  const lim = rateLimit({ key: `fm_get:${clientKey(req)}`, limit: 120, windowMs: 60_000 });
+  const lim = rateLimit({ key: `profile_get:${clientKey(req)}`, limit: 120, windowMs: 60_000 });
   if (!lim.ok) return NextResponse.json({ error: "RATE_LIMIT" }, { status: 429 });
 
   try {
@@ -31,21 +30,21 @@ export async function GET(req: Request, ctx: Ctx) {
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
     }
 
-    const parents = person.parents.map((r) => ({
+    const parentsList = person.parents.map((r) => ({
       id: r.parent.id,
       fullName: r.parent.fullName,
       isPrivate: r.parent.isPrivate,
       claimedByUserId: r.parent.claimedByUserId,
     }));
 
-    const children = person.children.map((r) => ({
+    const childrenList = person.children.map((r) => ({
       id: r.child.id,
       fullName: r.child.fullName,
       isPrivate: r.child.isPrivate,
       claimedByUserId: r.child.claimedByUserId,
     }));
 
-    const spouses = [
+    const spousesList = [
       ...person.spousesA.map((r) => ({
         id: r.b.id,
         fullName: r.b.fullName,
@@ -60,8 +59,7 @@ export async function GET(req: Request, ctx: Ctx) {
       })),
     ];
 
-    // Get siblings
-    const parentIds = parents.map(p => p.id);
+    const parentIds = parentsList.map(p => p.id);
     const siblingRels = parentIds.length > 0 ? await prisma.parentChild.findMany({
       where: {
         parentId: { in: parentIds },
@@ -81,7 +79,7 @@ export async function GET(req: Request, ctx: Ctx) {
         });
       }
     });
-    const siblings = Array.from(siblingsMap.values());
+    const siblingsList = Array.from(siblingsMap.values());
 
     return NextResponse.json({
       person: {
@@ -95,20 +93,20 @@ export async function GET(req: Request, ctx: Ctx) {
         claimedByUserId: person.claimedByUserId,
         createdById: person.createdById,
       },
-      parents,
-      children,
-      spouses,
-      siblings,
+      parents: parentsList,
+      children: childrenList,
+      spouses: spousesList,
+      siblings: siblingsList,
       canVouch: true,
     });
   } catch (error) {
-    console.error("GET /api/family-member/[id] error:", error);
+    console.error("GET /api/profile/[id] error:", error);
     return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
   }
 }
 
 export async function PATCH(req: Request, ctx: Ctx) {
-  const lim = rateLimit({ key: `fm_patch:${clientKey(req)}`, limit: 60, windowMs: 60_000 });
+  const lim = rateLimit({ key: `profile_patch:${clientKey(req)}`, limit: 60, windowMs: 60_000 });
   if (!lim.ok) return NextResponse.json({ error: "RATE_LIMIT" }, { status: 429 });
 
   try {
@@ -140,7 +138,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
     return NextResponse.json({ person: updated });
   } catch (error) {
-    console.error("PATCH /api/family-member/[id] error:", error);
+    console.error("PATCH /api/profile/[id] error:", error);
     return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
   }
 }
