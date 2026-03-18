@@ -1,8 +1,13 @@
-// This route has been moved to /api/person/[id]
-// This file exists only to clear the build cache
-
 import { NextResponse } from "next/server";
 
-export async function GET() {
-  return NextResponse.redirect(new URL("/api/person", "http://localhost:3000"));
+type Ctx = { params: Promise<{ id: string }> };
+
+export async function GET(_req: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
+  return NextResponse.json({ redirect: `/api/person/${id}` }, { status: 301 });
+}
+
+export async function PATCH(_req: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
+  return NextResponse.json({ redirect: `/api/person/${id}` }, { status: 301 });
 }
