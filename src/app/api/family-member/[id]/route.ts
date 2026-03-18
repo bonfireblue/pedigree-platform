@@ -1,3 +1,4 @@
+// Family member API - GET and PATCH for individual person records
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { rateLimit, clientKey } from "@/lib/rateLimit";
@@ -19,8 +20,8 @@ export async function GET(req: Request, ctx: Ctx) {
     const person = await prisma.person.findUnique({
       where: { id },
       include: {
-        parentsRel: { include: { parent: true } },
-        childrenRel: { include: { child: true } },
+        parents: { include: { parent: true } },
+        children: { include: { child: true } },
         spousesA: { include: { b: true } },
         spousesB: { include: { a: true } },
       },
@@ -30,14 +31,14 @@ export async function GET(req: Request, ctx: Ctx) {
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
     }
 
-    const parents = person.parentsRel.map((r) => ({
+    const parents = person.parents.map((r) => ({
       id: r.parent.id,
       fullName: r.parent.fullName,
       isPrivate: r.parent.isPrivate,
       claimedByUserId: r.parent.claimedByUserId,
     }));
 
-    const children = person.childrenRel.map((r) => ({
+    const children = person.children.map((r) => ({
       id: r.child.id,
       fullName: r.child.fullName,
       isPrivate: r.child.isPrivate,
