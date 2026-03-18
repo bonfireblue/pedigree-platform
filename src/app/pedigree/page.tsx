@@ -196,7 +196,7 @@ export default function PedigreePage() {
     setLoadingDetail(true);
 
     try {
-      const res = await fetch(`/api/people/${encodeURIComponent(id)}`);
+      const res = await fetch(`/api/family-member/${encodeURIComponent(id)}`);
       const data = await res.json().catch(() => null);
 
       if (!res.ok || !data) {
@@ -556,7 +556,7 @@ setEditFirstName(detail.person.firstName ?? "");
     setError(null);
 
     try {
-      const res = await fetch(`/api/people/${encodeURIComponent(selectedId)}`, {
+      const res = await fetch(`/api/family-member/${encodeURIComponent(selectedId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -720,7 +720,7 @@ async function sendInvite() {
     setError(null);
     
     try {
-      const res = await fetch(`/api/people/${selectedId}`, {
+      const res = await fetch(`/api/family-member/${selectedId}`, {
         method: "DELETE",
       });
       
