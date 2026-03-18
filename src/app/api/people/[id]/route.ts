@@ -5,7 +5,6 @@ import { readJson } from "@/lib/body";
 import { requireMe } from "@/lib/authz";
 import {
   PersonError,
-  buildPersonPatch,
   canEditPerson,
   canViewPerson,
 } from "@/lib/personRules";
@@ -256,7 +255,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
       return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
     }
 
-    // Simplified direct update - bypass buildPersonPatch
+    // Simplified direct update
     const body = parsed.json;
     
     // Build SET clause with explicit fields
@@ -435,7 +434,7 @@ export async function DELETE(req: Request, ctx: Ctx) {
       return NextResponse.json({ error: error.code }, { status: error.status });
     }
 
-    console.error("DELETE /api/people/[id] failed", error);
+    console.error("DELETE /api/people/[id] error:", error);
     return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
   }
 }
