@@ -114,37 +114,18 @@ export async function assertNoDuplicateActiveInvite(params: {
   email?: string | null;
   phone?: string | null;
 }) {
-  const now = new Date();
-
-  // Build where clause - check if same contact method exists for same person
-  const contactConditions: { email?: string; phone?: string }[] = [];
-  if (params.email) contactConditions.push({ email: params.email });
-  if (params.phone) contactConditions.push({ phone: params.phone });
-
-  if (contactConditions.length === 0) return; // No contact to check
-
-  const existing = await prisma.invitation.findFirst({
-    where: {
-      familyGraphId: params.familyGraphId,
-      targetPersonId: params.targetPersonId,
-      status: "PENDING",
-      OR: [
-        { expiresAt: null },
-        { expiresAt: { gt: now } },
-      ],
-      AND: [
-        { OR: contactConditions },
-      ],
-    },
-    select: {
-      id: true,
-      token: true,
-      expiresAt: true,
-    },
+  // Allow multiple invites to the same person - they can be sent to different emails/phones
+  // When one invite is accepted, all other pending invites for that person are automatically revoked
+  // So we no longer block resending invites - users can send as many as they want
+  // The only restriction is that the person must not already be claimed
+  
+  const person = await prisma.person.findUnique({
+    where: { id: params.targetPersonId },
+    select: { claimedByUserId: true },
   });
-
-  if (existing) {
-    throw new InvitationError("ACTIVE_INVITE_ALREADY_EXISTS", 409);
+  
+  if (person?.claimedByUserId) {
+    throw new InvitationError("PERSON_ALREADY_CLAIMED", 400);
   }
 }
 
