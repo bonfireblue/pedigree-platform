@@ -5,6 +5,9 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 // Use your verified domain email, or onboarding@resend.dev for testing
 const FROM_EMAIL = process.env.EMAIL_FROM || 'Pedigree Platform <onboarding@resend.dev>';
 
+console.log("[v0] Email config - RESEND_API_KEY exists:", !!process.env.RESEND_API_KEY);
+console.log("[v0] Email config - EMAIL_FROM:", FROM_EMAIL);
+
 export async function sendInvitationEmail(params: {
   to: string;
   inviterName: string;
@@ -12,6 +15,10 @@ export async function sendInvitationEmail(params: {
   inviteUrl: string;
 }) {
   const { to, inviterName, personName, inviteUrl } = params;
+
+  console.log("[v0] Sending invitation email to:", to);
+  console.log("[v0] From:", FROM_EMAIL);
+  console.log("[v0] Invite URL:", inviteUrl);
 
   const { data, error } = await resend.emails.send({
     from: FROM_EMAIL,
@@ -48,6 +55,9 @@ export async function sendInvitationEmail(params: {
       </html>
     `,
   });
+
+  console.log("[v0] Resend response - data:", data);
+  console.log("[v0] Resend response - error:", error);
 
   if (error) {
     console.error('Failed to send invitation email:', error);
