@@ -1,18 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { Suspense } from "react";
 
-function SignUpForm() {
+export default function SignUpPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const adminKey = searchParams.get("admin");
   
-  // Only allow sign-up with special admin key
-  const isAdmin = adminKey === process.env.NEXT_PUBLIC_ADMIN_SIGNUP_KEY || adminKey === "bonfire2024";
-  
+  const [passcode, setPasscode] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -23,6 +18,11 @@ function SignUpForm() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (!passcode.trim()) {
+      setError("Passcode is required to create an account.");
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
@@ -40,7 +40,12 @@ function SignUpForm() {
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, password, name: name || undefined }),
+        body: JSON.stringify({ 
+          email, 
+          password, 
+          name: name || undefined,
+          passcode: passcode.trim().toUpperCase(),
+        }),
       });
 
       if (!res.ok) {
@@ -69,45 +74,6 @@ function SignUpForm() {
     }
   }
 
-  // If not admin, show invitation-only message
-  if (!isAdmin) {
-    return (
-      <main style={{ 
-        maxWidth: 420, 
-        margin: "0 auto", 
-        padding: "40px 20px",
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        textAlign: "center",
-      }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 16 }}>Invitation Required</h1>
-        <p style={{ opacity: 0.8, marginBottom: 24, lineHeight: 1.6 }}>
-          This family tree platform is invite-only. To join, you need an invitation link from a family member who is already on the platform.
-        </p>
-        <p style={{ opacity: 0.6, fontSize: 14, marginBottom: 24 }}>
-          If you received an invitation link, please use that link to create your account and claim your profile.
-        </p>
-        <a 
-          href="/sign-in" 
-          style={{ 
-            display: "inline-block",
-            padding: "12px 24px",
-            borderRadius: 12,
-            border: "1px solid #111",
-            background: "#111",
-            color: "white",
-            textDecoration: "none",
-            fontWeight: 600,
-          }}
-        >
-          Already have an account? Sign in
-        </a>
-      </main>
-    );
-  }
-
   return (
     <main style={{ 
       maxWidth: 420, 
@@ -118,25 +84,45 @@ function SignUpForm() {
       flexDirection: "column",
       justifyContent: "center",
     }}>
-      <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Create Admin Account</h1>
+      <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Create Your Account</h1>
       <p style={{ opacity: 0.8, marginBottom: 20 }}>
-        Create an admin account to manage the family tree.
+        Enter your passcode to join the family tree.
       </p>
 
       <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Name</span>
+          <span>Passcode <span style={{ color: "crimson" }}>*</span></span>
+          <input
+            value={passcode}
+            onChange={(e) => setPasscode(e.target.value.toUpperCase())}
+            required
+            placeholder="Enter your 8-character passcode"
+            autoComplete="off"
+            style={{ 
+              padding: 10, 
+              border: "1px solid #ddd", 
+              borderRadius: 10,
+              fontFamily: "monospace",
+              fontSize: 16,
+              letterSpacing: 2,
+              textTransform: "uppercase",
+            }}
+          />
+        </label>
+
+        <label style={{ display: "grid", gap: 6 }}>
+          <span>Your Name</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Optional"
+            placeholder="Enter your full name"
             autoComplete="name"
             style={{ padding: 10, border: "1px solid #ddd", borderRadius: 10 }}
           />
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Email</span>
+          <span>Email <span style={{ color: "crimson" }}>*</span></span>
           <input
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -148,7 +134,7 @@ function SignUpForm() {
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Password</span>
+          <span>Password <span style={{ color: "crimson" }}>*</span></span>
           <input
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -160,7 +146,7 @@ function SignUpForm() {
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Confirm Password</span>
+          <span>Confirm Password <span style={{ color: "crimson" }}>*</span></span>
           <input
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
@@ -188,7 +174,7 @@ function SignUpForm() {
             fontWeight: 600,
           }}
         >
-          {loading ? "Creating..." : "Create Admin Account"}
+          {loading ? "Creating..." : "Create Account"}
         </button>
 
         <a href="/sign-in" style={{ textAlign: "center", marginTop: 6 }}>
@@ -196,13 +182,5 @@ function SignUpForm() {
         </a>
       </form>
     </main>
-  );
-}
-
-export default function SignUpPage() {
-  return (
-    <Suspense fallback={<div style={{ padding: 40, textAlign: "center" }}>Loading...</div>}>
-      <SignUpForm />
-    </Suspense>
   );
 }

@@ -9,6 +9,35 @@ export async function POST(req: Request) {
     const email = (body?.email ?? "").toString().trim().toLowerCase();
     const password = (body?.password ?? "").toString();
     const name = (body?.name ?? "").toString().trim();
+    const passcode = (body?.passcode ?? "").toString().trim().toUpperCase();
+
+    if (!passcode) {
+      return NextResponse.json(
+        { error: "Passcode is required to create an account." },
+        { status: 400 }
+      );
+    }
+
+    // Validate passcode exists and hasn't been used
+    const passcodeRows = await sql`
+      SELECT id, code, "usedByUserId" 
+      FROM "Passcode" 
+      WHERE code = ${passcode}
+    `;
+
+    if (passcodeRows.length === 0) {
+      return NextResponse.json(
+        { error: "Invalid passcode. Please check and try again." },
+        { status: 400 }
+      );
+    }
+
+    if (passcodeRows[0].usedByUserId) {
+      return NextResponse.json(
+        { error: "This passcode has already been used." },
+        { status: 400 }
+      );
+    }
 
     if (!email || !password) {
       return NextResponse.json(
@@ -34,6 +63,13 @@ export async function POST(req: Request) {
 
     const passwordHash = await argon2.hash(password);
     const newUser = await createUser(email, passwordHash, "USER");
+
+    // Mark the passcode as used
+    await sql`
+      UPDATE "Passcode" 
+      SET "usedByUserId" = ${newUser.id}, "usedAt" = NOW()
+      WHERE code = ${passcode}
+    `;
 
     // Create a family graph for this user
     const graphId = crypto.randomUUID();
