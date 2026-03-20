@@ -21,12 +21,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Create the Passcode table if it doesn't exist
+    // Create the Passcode table if it doesn't exist (no foreign key to avoid type conflicts)
     await sql`
       CREATE TABLE IF NOT EXISTS "Passcode" (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         code VARCHAR(20) UNIQUE NOT NULL,
-        "usedByUserId" UUID REFERENCES "User"(id),
+        "usedByUserId" UUID,
         "usedAt" TIMESTAMP WITH TIME ZONE,
         "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         "expiresAt" TIMESTAMP WITH TIME ZONE
