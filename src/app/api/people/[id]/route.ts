@@ -169,6 +169,7 @@ export async function GET(req: Request, ctx: Ctx) {
       grewUpLocation: (person as any).grewUpLocation ?? null,
       occupation: (person as any).occupation ?? null,
       proudOf: (person as any).proudOf ?? null,
+      story: (person as any).story ?? null,
       interests: (person as any).interests ?? null,
       photoUrl: person.photoUrl,
       isPrivate: person.isPrivate,

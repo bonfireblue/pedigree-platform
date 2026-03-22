@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { personId, firstName, lastName, fullName, gender, birthDate, deathDate, grewUpLocation, occupation, proudOf, interests, photoUrl } = body;
+    const { personId, firstName, lastName, fullName, gender, birthDate, deathDate, grewUpLocation, occupation, proudOf, story, interests, photoUrl } = body;
 
     if (!personId) {
       return NextResponse.json({ error: "Missing personId" }, { status: 400 });
@@ -32,6 +32,7 @@ export async function POST(request: Request) {
         "grewUpLocation" = ${grewUpLocation},
         "occupation" = ${occupation},
         "proudOf" = ${proudOf},
+        "story" = ${story},
         "interests" = ${interests},
         "photoUrl" = ${photoUrl},
         "updatedAt" = NOW()

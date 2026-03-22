@@ -55,6 +55,7 @@ type PersonDetail = {
     gender?: string | null;
     photoUrl?: string | null;
     proudOf?: string | null;
+    story?: string | null;
     occupation?: string | null;
     interests?: string | null;
     isPrivate: boolean;
@@ -173,6 +174,76 @@ export default function PedigreePage() {
   const [editGrewUpLocation, setEditGrewUpLocation] = useState("");
   const [editOccupation, setEditOccupation] = useState("");
   const [editProudOf, setEditProudOf] = useState("");
+  const [editStory, setEditStory] = useState("");
+  const [lang, setLang] = useState<"en" | "vi">("en");
+
+  // Translations
+  const t = {
+    en: {
+      story: "What is your story?",
+      storyPlaceholder: "Share your life story...",
+      proudOf: "What are you most proud of?",
+      proudOfPlaceholder: "Share something you're proud of...",
+      interests: "Interests & Hobbies",
+      interestsPlaceholder: "What do you enjoy doing?",
+      occupation: "Occupation",
+      occupationPlaceholder: "What do you do?",
+      grewUp: "Where did you grow up?",
+      grewUpPlaceholder: "City, Country",
+      birthDate: "Birth Date",
+      deathDate: "Death Date",
+      gender: "Gender",
+      male: "Male",
+      female: "Female",
+      other: "Other",
+      save: "Save Changes",
+      saving: "Saving...",
+      makePublic: "Make Public",
+      makePrivate: "Make Private",
+      verify: "Verify This Person",
+      verifying: "Vouching...",
+      delete: "Delete",
+      languageToggle: "Tiếng Việt",
+    },
+    vi: {
+      story: "Câu chuyện của bạn là gì?",
+      storyPlaceholder: "Chia sẻ câu chuyện cuộc đời bạn...",
+      proudOf: "Bạn tự hào nhất về điều gì?",
+      proudOfPlaceholder: "Chia sẻ điều bạn tự hào...",
+      interests: "Sở thích",
+      interestsPlaceholder: "Bạn thích làm gì?",
+      occupation: "Nghề nghiệp",
+      occupationPlaceholder: "Bạn làm nghề gì?",
+      grewUp: "Bạn lớn lên ở đâu?",
+      grewUpPlaceholder: "Thành phố, Quốc gia",
+      birthDate: "Ngày sinh",
+      deathDate: "Ngày mất",
+      gender: "Giới tính",
+      male: "Nam",
+      female: "Nữ",
+      other: "Khác",
+      save: "Lưu thay đổi",
+      saving: "Đang lưu...",
+      makePublic: "Công khai",
+      makePrivate: "Riêng tư",
+      verify: "Xác minh người này",
+      verifying: "Đang xác minh...",
+      delete: "Xóa",
+      languageToggle: "English",
+    },
+  }[lang];
+
+  // Auto-detect Vietnam timezone on mount
+  useEffect(() => {
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (tz === "Asia/Ho_Chi_Minh" || tz === "Asia/Saigon") {
+        setLang("vi");
+      }
+    } catch {
+      // Ignore timezone detection errors
+    }
+  }, []);
   const [editInterests, setEditInterests] = useState("");
   const [editPhotoUrl, setEditPhotoUrl] = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -217,6 +288,7 @@ setEditFirstName(detail.person.firstName ?? "");
       setEditGrewUpLocation(detail.person.grewUpLocation ?? "");
       setEditOccupation(detail.person.occupation ?? "");
       setEditProudOf(detail.person.proudOf ?? "");
+      setEditStory(detail.person.story ?? "");
       setEditInterests(detail.person.interests ?? "");
       setEditPhotoUrl(detail.person.photoUrl ?? "");
       
@@ -531,6 +603,7 @@ setEditFirstName(detail.person.firstName ?? "");
           grewUpLocation: editGrewUpLocation.trim() || null,
           occupation: editOccupation.trim() || null,
           proudOf: editProudOf.trim() || null,
+        story: editStory.trim() || null,
           interests: editInterests.trim() || null,
           photoUrl: editPhotoUrl || null,
         }),
@@ -1287,15 +1360,36 @@ async function sendInvite() {
                     />
                   </div>
 
+                  {/* Story */}
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4, display: "block" }}>
+                      {t.story}
+                    </label>
+                    <textarea
+                      value={editStory}
+                      onChange={(e) => setEditStory(e.target.value)}
+                      placeholder={t.storyPlaceholder}
+                      rows={4}
+                      style={{
+                        width: "100%",
+                        borderRadius: 12,
+                        border: "1px solid #d1d5db",
+                        padding: "10px 12px",
+                        resize: "vertical",
+                        fontFamily: "inherit",
+                      }}
+                    />
+                  </div>
+
                   {/* Proud Of */}
                   <div>
                     <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4, display: "block" }}>
-                      What are you most proud of?
+                      {t.proudOf}
                     </label>
                     <textarea
                       value={editProudOf}
                       onChange={(e) => setEditProudOf(e.target.value)}
-                      placeholder="Share something you're proud of..."
+                      placeholder={t.proudOfPlaceholder}
                       rows={3}
                       style={{
                         width: "100%",
@@ -1308,6 +1402,25 @@ async function sendInvite() {
                     />
                   </div>
 
+                  {/* Language Toggle */}
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => setLang(lang === "en" ? "vi" : "en")}
+                      style={{
+                        background: "transparent",
+                        border: "1px solid #d1d5db",
+                        borderRadius: 8,
+                        padding: "6px 12px",
+                        fontSize: 12,
+                        cursor: "pointer",
+                        color: "#6b7280",
+                      }}
+                    >
+                      {t.languageToggle}
+                    </button>
+                  </div>
+
                   {/* Actions */}
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button
@@ -1316,7 +1429,7 @@ async function sendInvite() {
                       disabled={!selectedId || editBusy}
                       style={actionButtonStyle(true)}
                     >
-                      {editBusy ? "Saving..." : "Save Changes"}
+                      {editBusy ? t.saving : t.save}
                     </button>
 
                     <button
@@ -1325,7 +1438,7 @@ async function sendInvite() {
                       disabled={!selectedId || editBusy}
                       style={actionButtonStyle(false)}
                     >
-                      {personDetail.person.isPrivate ? "Make Public" : "Make Private"}
+                      {personDetail.person.isPrivate ? t.makePublic : t.makePrivate}
                     </button>
 
                     {/* Vouch button - only show for claimed but unverified persons */}
@@ -1341,7 +1454,7 @@ async function sendInvite() {
                           border: "1px solid #10b981",
                         }}
                       >
-                        {vouchBusy ? "Vouching..." : "Verify This Person"}
+                        {vouchBusy ? t.verifying : t.verify}
                       </button>
                     )}
 
@@ -1357,7 +1470,7 @@ async function sendInvite() {
                           border: "1px solid #fca5a5",
                         }}
                       >
-                        Delete Person
+                        {t.delete}
                       </button>
                     )}
                   </div>
