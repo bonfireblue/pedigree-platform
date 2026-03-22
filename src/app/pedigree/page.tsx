@@ -788,10 +788,10 @@ async function sendInvite() {
     }
   }
 
-  const selectedName = personDetail?.person.fullName ?? "No person selected";
+  const selectedName = personDetail?.person.fullName ?? (lang === "vi" ? "Chưa chọn người nào" : "No person selected");
   const selectedClaimed = Boolean(personDetail?.person.claimedByUserId);
-  const relTitle =
-    relMode === "PARENT" ? "Add Parent" : relMode === "CHILD" ? "Add Child" : relMode === "SPOUSE" ? "Add Spouse" : "Add Sibling";
+const relTitle =
+  relMode === "PARENT" ? t.addParent : relMode === "CHILD" ? t.addChild : relMode === "SPOUSE" ? t.addSpouse : t.addSibling;
 
   if (status === "loading") return null;
   if (status === "unauthenticated") return null;
@@ -906,7 +906,7 @@ async function sendInvite() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onFocus={() => searchQuery.trim() && setSearchOpen(true)}
-                  placeholder={selectedId ? "Search people in this graph…" : "Load a person first…"}
+                  placeholder={selectedId ? t.searchPeople : (lang === "vi" ? "Tải một người trước…" : "Load a person first…")}
                   disabled={!selectedId}
                   style={{
   width: "100%",
@@ -1052,10 +1052,15 @@ async function sendInvite() {
           }}
         >
           <div style={{ ...sectionCardStyle(), padding: 16 }}>
+            {/* Language Toggle - Top Left */}
+            <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: 12 }}>
+              <LanguageToggle />
+            </div>
+
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start" }}>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.5, color: "#64748b" }}>
-                  SELECTED PERSON
+                  {lang === "vi" ? "NGƯỜI ĐƯỢC CHỌN" : "SELECTED PERSON"}
                 </div>
                 <div style={{ marginTop: 4, fontSize: 22, lineHeight: "28px", fontWeight: 900 }}>
                   {selectedName}
@@ -1064,7 +1069,7 @@ async function sendInvite() {
 
               <div style={{ display: "flex", gap: 6 }}>
                 <div style={badgeStyle(selectedClaimed)}>
-                  {selectedClaimed ? "CLAIMED" : "UNCLAIMED"}
+                  {selectedClaimed ? (lang === "vi" ? "ĐÃ NHẬN" : "CLAIMED") : (lang === "vi" ? "CHƯA NHẬN" : "UNCLAIMED")}
                 </div>
                 {selectedClaimed && (
                   <div
@@ -1079,14 +1084,14 @@ async function sendInvite() {
                       color: personDetail?.person.isVerified ? "#065f46" : "#92400e",
                     }}
                   >
-                    {personDetail?.person.isVerified ? "VERIFIED" : "UNVERIFIED"}
+                    {personDetail?.person.isVerified ? (lang === "vi" ? "ĐÃ XÁC MINH" : "VERIFIED") : (lang === "vi" ? "CHƯA XÁC MINH" : "UNVERIFIED")}
                   </div>
                 )}
               </div>
             </div>
 
             {loadingDetail ? (
-              <div style={{ marginTop: 12, color: "#64748b" }}>Loading details…</div>
+              <div style={{ marginTop: 12, color: "#64748b" }}>{t.loading}</div>
             ) : personDetail ? (
               <>
                 <div style={{ marginTop: 14, display: "grid", gap: 14 }}>
@@ -1108,7 +1113,7 @@ async function sendInvite() {
                       {editPhotoUrl ? (
                         <img
                           src={`/api/file?pathname=${encodeURIComponent(editPhotoUrl)}`}
-                          alt="Profile"
+                          alt={t.profile}
                           style={{ width: "100%", height: "100%", objectFit: "cover" }}
                         />
                       ) : (
@@ -1131,7 +1136,7 @@ async function sendInvite() {
                           opacity: uploadingPhoto ? 0.6 : 1,
                         }}
                       >
-                        {uploadingPhoto ? "Uploading..." : editPhotoUrl ? "Change Photo" : "Upload Photo"}
+                        {uploadingPhoto ? t.uploadingPhoto : editPhotoUrl ? t.changePhoto : t.uploadPhoto}
                         <input
                           type="file"
                           accept="image/jpeg,image/png,image/gif,image/webp"
@@ -1141,7 +1146,7 @@ async function sendInvite() {
                         />
                       </label>
                       <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>
-                        JPEG, PNG, GIF, or WebP. Max 5MB.
+                        {t.photoFormat}
                       </div>
                     </div>
                   </div>
@@ -1150,12 +1155,12 @@ async function sendInvite() {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                     <div>
                       <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4, display: "block" }}>
-                        First Name
+                        {t.firstName}
                       </label>
                       <input
                         value={editFirstName}
                         onChange={(e) => setEditFirstName(e.target.value)}
-                        placeholder="First name"
+                        placeholder={t.firstNamePlaceholder}
                         style={{
                           width: "100%",
                           borderRadius: 12,
@@ -1166,12 +1171,12 @@ async function sendInvite() {
                     </div>
                     <div>
                       <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4, display: "block" }}>
-                        Last Name
+                        {t.lastName}
                       </label>
                       <input
                         value={editLastName}
                         onChange={(e) => setEditLastName(e.target.value)}
-                        placeholder="Last name"
+                        placeholder={t.lastNamePlaceholder}
                         style={{
                           width: "100%",
                           borderRadius: 12,
@@ -1185,7 +1190,7 @@ async function sendInvite() {
                   {/* Gender */}
                   <div>
                     <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4, display: "block" }}>
-                      Gender
+                      {t.gender}
                     </label>
                     <select
                       value={editGender}
@@ -1199,17 +1204,17 @@ async function sendInvite() {
                         color: "#ffffff",
                       }}
                     >
-                      <option value="" style={{ background: "#111827", color: "#ffffff" }}>Prefer not to say</option>
-                      <option value="male" style={{ background: "#111827", color: "#ffffff" }}>Male</option>
-                      <option value="female" style={{ background: "#111827", color: "#ffffff" }}>Female</option>
-                      <option value="other" style={{ background: "#111827", color: "#ffffff" }}>Other</option>
+                      <option value="" style={{ background: "#111827", color: "#ffffff" }}>{t.preferNotToSay}</option>
+                      <option value="male" style={{ background: "#111827", color: "#ffffff" }}>{t.male}</option>
+                      <option value="female" style={{ background: "#111827", color: "#ffffff" }}>{t.female}</option>
+                      <option value="other" style={{ background: "#111827", color: "#ffffff" }}>{t.other}</option>
                     </select>
                   </div>
 
                   {/* Lived From - To */}
                   <div>
                     <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4, display: "block" }}>
-                      Lived From - To
+                      {t.livedFromTo}
                     </label>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, alignItems: "center" }}>
                       <input
@@ -1228,7 +1233,6 @@ async function sendInvite() {
                         type="date"
                         value={editDeathDate}
                         onChange={(e) => setEditDeathDate(e.target.value)}
-                        placeholder="Present"
                         style={{
                           width: "100%",
                           borderRadius: 12,
@@ -1238,19 +1242,19 @@ async function sendInvite() {
                       />
                     </div>
                     <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
-                      Leave end date empty for living people
+                      {t.leaveEndDateEmpty}
                     </div>
                   </div>
 
                   {/* Where did you grow up */}
                   <div>
                     <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4, display: "block" }}>
-                      Where did you grow up?
+                      {t.grewUp}
                     </label>
                     <input
                       value={editGrewUpLocation}
                       onChange={(e) => setEditGrewUpLocation(e.target.value)}
-                      placeholder="City, Country"
+                      placeholder={t.grewUpPlaceholder}
                       style={{
                         width: "100%",
                         borderRadius: 12,
@@ -1263,12 +1267,12 @@ async function sendInvite() {
                   {/* Occupation */}
                   <div>
                     <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4, display: "block" }}>
-                      Occupation / Career
+                      {t.occupation}
                     </label>
                     <input
                       value={editOccupation}
                       onChange={(e) => setEditOccupation(e.target.value)}
-                      placeholder="What do/did you do for work?"
+                      placeholder={t.occupationPlaceholder}
                       style={{
                         width: "100%",
                         borderRadius: 12,
@@ -1281,12 +1285,12 @@ async function sendInvite() {
                   {/* Interests */}
                   <div>
                     <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4, display: "block" }}>
-                      Hobbies / Interests
+                      {t.interests}
                     </label>
                     <input
                       value={editInterests}
                       onChange={(e) => setEditInterests(e.target.value)}
-                      placeholder="What do you enjoy doing?"
+                      placeholder={t.interestsPlaceholder}
                       style={{
                         width: "100%",
                         borderRadius: 12,
@@ -1336,11 +1340,6 @@ async function sendInvite() {
                         fontFamily: "inherit",
                       }}
                     />
-                  </div>
-
-                  {/* Language Toggle */}
-                  <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-                    <LanguageToggle />
                   </div>
 
                   {/* Actions */}
@@ -1407,7 +1406,7 @@ async function sendInvite() {
                     }}
                   >
                     <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.5, color: "#64748b" }}>
-                      INVITE TO CLAIM
+                      {t.inviteToClaim}
                     </div>
 
                     {/* Email/Phone toggle */}
@@ -1427,7 +1426,7 @@ async function sendInvite() {
                           cursor: "pointer",
                         }}
                       >
-                        Email
+                        {t.email}
                       </button>
                       <button
                         type="button"
@@ -1444,7 +1443,7 @@ async function sendInvite() {
                           cursor: "pointer",
                         }}
                       >
-                        Phone
+                        {t.phone}
                       </button>
                     </div>
 
@@ -1453,7 +1452,7 @@ async function sendInvite() {
                         <input
                           value={inviteEmail}
                           onChange={(e) => setInviteEmail(e.target.value)}
-                          placeholder="person@email.com"
+                          placeholder={t.emailPlaceholder}
                           type="email"
                           style={{
                             width: "100%",
@@ -1466,7 +1465,7 @@ async function sendInvite() {
                         <input
                           value={invitePhone}
                           onChange={(e) => setInvitePhone(e.target.value)}
-                          placeholder="+1 (555) 123-4567"
+                          placeholder={t.phonePlaceholder}
                           type="tel"
                           style={{
                             width: "100%",
@@ -1482,7 +1481,7 @@ async function sendInvite() {
                         disabled={(inviteMethod === "email" ? !inviteEmail.trim() : !invitePhone.trim()) || inviteBusy}
                         style={actionButtonStyle(false)}
                       >
-                        {inviteBusy ? "Sending..." : "Create Invite Link"}
+                        {inviteBusy ? t.sendingInvite : t.createInviteLink}
                       </button>
                     </div>
                   </div>
@@ -1493,7 +1492,7 @@ async function sendInvite() {
 
           <div style={{ ...sectionCardStyle(), padding: 16 }}>
             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.5, color: "#64748b" }}>
-              RELATIONSHIP ACTIONS
+              {t.relationshipActions}
             </div>
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
@@ -1506,7 +1505,7 @@ async function sendInvite() {
                   color: relMode === "PARENT" ? "#ffffff" : "#111827",
                 }}
               >
-                Parent
+                {t.parent}
               </button>
 
               <button
@@ -1518,7 +1517,7 @@ async function sendInvite() {
                   color: relMode === "CHILD" ? "#ffffff" : "#111827",
                 }}
               >
-                Child
+                {t.child}
               </button>
 
               <button
@@ -1530,7 +1529,7 @@ async function sendInvite() {
                   color: relMode === "SPOUSE" ? "#ffffff" : "#111827",
                 }}
               >
-                Spouse
+                {t.spouse}
               </button>
 
               <button
@@ -1542,7 +1541,7 @@ async function sendInvite() {
                   color: relMode === "SIBLING" ? "#ffffff" : "#111827",
                 }}
               >
-                Sibling
+                {t.sibling}
               </button>
             </div>
 
@@ -1552,7 +1551,7 @@ async function sendInvite() {
               <input
                 value={newRelativeName}
                 onChange={(e) => setNewRelativeName(e.target.value)}
-                placeholder={`Create new ${relMode.toLowerCase()}`}
+                placeholder={relMode === "PARENT" ? t.createNewParent : relMode === "CHILD" ? t.createNewChild : relMode === "SPOUSE" ? t.createNewSpouse : t.createNewSibling}
                 style={{
                   width: "100%",
                   borderRadius: 12,
@@ -1567,7 +1566,7 @@ async function sendInvite() {
                   checked={newRelativePrivate}
                   onChange={(e) => setNewRelativePrivate(e.target.checked)}
                 />
-                Make new profile private
+                {t.makeNewProfilePrivate}
               </label>
 
               <button
@@ -1576,7 +1575,7 @@ async function sendInvite() {
                 disabled={!selectedId || !newRelativeName.trim() || relBusy}
                 style={actionButtonStyle(true)}
               >
-                {relBusy ? "Working..." : "Create & link"}
+                {relBusy ? t.working : t.createAndLink}
               </button>
             </div>
 
@@ -1588,13 +1587,13 @@ async function sendInvite() {
                 position: "relative",
               }}
             >
-              <div style={{ fontWeight: 800, marginBottom: 8 }}>Link existing person</div>
+              <div style={{ fontWeight: 800, marginBottom: 8 }}>{t.linkExistingPerson}</div>
 
               <input
                 value={existingRelQuery}
                 onChange={(e) => setExistingRelQuery(e.target.value)}
                 onFocus={() => existingRelQuery.trim() && setExistingRelOpen(true)}
-                placeholder={`Search existing ${relMode.toLowerCase()}`}
+                placeholder={relMode === "PARENT" ? t.searchExistingParent : relMode === "CHILD" ? t.searchExistingChild : relMode === "SPOUSE" ? t.searchExistingSpouse : t.searchExistingSibling}
                 style={{
   width: "100%",
   borderRadius: 12,

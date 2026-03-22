@@ -57,26 +57,66 @@ export function useLanguage() {
   return context;
 }
 
-// Language toggle component
+// Language toggle component with toggle switch style
 export function LanguageToggle({ style }: { style?: React.CSSProperties }) {
-  const { lang, setLang, t } = useLanguage();
+  const { lang, setLang } = useLanguage();
 
   return (
-    <button
-      type="button"
-      onClick={() => setLang(lang === "en" ? "vi" : "en")}
+    <div
       style={{
-        background: "transparent",
-        border: "1px solid #d1d5db",
-        borderRadius: 8,
-        padding: "6px 12px",
-        fontSize: 12,
-        cursor: "pointer",
-        color: "#6b7280",
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        background: "#f1f5f9",
+        borderRadius: 20,
+        padding: 4,
         ...style,
       }}
     >
-      {t.languageToggle}
-    </button>
+      <button
+        type="button"
+        onClick={() => setLang("en")}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+          background: lang === "en" ? "#ffffff" : "transparent",
+          border: "none",
+          borderRadius: 16,
+          padding: "6px 12px",
+          fontSize: 12,
+          fontWeight: 600,
+          cursor: "pointer",
+          color: lang === "en" ? "#111827" : "#6b7280",
+          boxShadow: lang === "en" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+          transition: "all 0.2s ease",
+        }}
+      >
+        <span style={{ fontSize: 14 }}>🇺🇸</span>
+        EN
+      </button>
+      <button
+        type="button"
+        onClick={() => setLang("vi")}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+          background: lang === "vi" ? "#ffffff" : "transparent",
+          border: "none",
+          borderRadius: 16,
+          padding: "6px 12px",
+          fontSize: 12,
+          fontWeight: 600,
+          cursor: "pointer",
+          color: lang === "vi" ? "#111827" : "#6b7280",
+          boxShadow: lang === "vi" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+          transition: "all 0.2s ease",
+        }}
+      >
+        <span style={{ fontSize: 14 }}>🇻🇳</span>
+        VI
+      </button>
+    </div>
   );
 }
