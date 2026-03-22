@@ -830,6 +830,11 @@ const relTitle =
       </button>
 
       <style>{`
+        .pedigree-sidebar input,
+        .pedigree-sidebar textarea,
+        .pedigree-sidebar select {
+          box-sizing: border-box;
+        }
         @media (max-width: 768px) {
           .mobile-fab { display: flex !important; align-items: center; justify-content: center; }
           .pedigree-grid { grid-template-columns: 1fr !important; }
@@ -839,13 +844,26 @@ const relTitle =
             right: 0 !important; 
             bottom: 0 !important; 
             width: 100% !important;
-            max-width: 360px !important;
+            max-width: 100vw !important;
             z-index: 40 !important;
             transform: translateX(${sidebarOpen ? "0" : "100%"});
             transition: transform 0.3s ease;
             overflow-y: auto !important;
+            overflow-x: hidden !important;
             background: #f8fafc !important;
             padding: 16px !important;
+            box-sizing: border-box !important;
+          }
+          .pedigree-sidebar * {
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          .pedigree-sidebar input,
+          .pedigree-sidebar textarea,
+          .pedigree-sidebar select,
+          .pedigree-sidebar button {
+            max-width: 100% !important;
+            box-sizing: border-box !important;
           }
           .pedigree-overlay {
             display: ${sidebarOpen ? "block" : "none"} !important;
