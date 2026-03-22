@@ -1168,7 +1168,7 @@ const relTitle =
                   </div>
 
                   {/* Name fields */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div className="name-fields-grid" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     <div>
                       <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4, display: "block" }}>
                         {t.firstName}
@@ -1179,6 +1179,8 @@ const relTitle =
                         placeholder={t.firstNamePlaceholder}
                         style={{
                           width: "100%",
+                          maxWidth: "100%",
+                          boxSizing: "border-box" as const,
                           borderRadius: 12,
                           border: "1px solid #d1d5db",
                           padding: "10px 12px",
@@ -1195,6 +1197,8 @@ const relTitle =
                         placeholder={t.lastNamePlaceholder}
                         style={{
                           width: "100%",
+                          maxWidth: "100%",
+                          boxSizing: "border-box" as const,
                           borderRadius: 12,
                           border: "1px solid #d1d5db",
                           padding: "10px 12px",
@@ -1213,6 +1217,8 @@ const relTitle =
                       onChange={(e) => setEditGender(e.target.value)}
                       style={{
                         width: "100%",
+                        maxWidth: "100%",
+                        boxSizing: "border-box" as const,
                         borderRadius: 12,
                         border: "1px solid #d1d5db",
                         padding: "10px 12px",
@@ -1232,25 +1238,29 @@ const relTitle =
                     <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4, display: "block" }}>
                       {t.livedFromTo}
                     </label>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, alignItems: "center" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       <input
                         type="date"
                         value={editBirthDate}
                         onChange={(e) => setEditBirthDate(e.target.value)}
                         style={{
                           width: "100%",
+                          maxWidth: "100%",
+                          boxSizing: "border-box" as const,
                           borderRadius: 12,
                           border: "1px solid #d1d5db",
                           padding: "10px 12px",
                         }}
                       />
-                      <span style={{ color: "#64748b", fontWeight: 700 }}>—</span>
+                      <span style={{ color: "#64748b", fontWeight: 700, textAlign: "center" }}>—</span>
                       <input
                         type="date"
                         value={editDeathDate}
                         onChange={(e) => setEditDeathDate(e.target.value)}
                         style={{
                           width: "100%",
+                          maxWidth: "100%",
+                          boxSizing: "border-box" as const,
                           borderRadius: 12,
                           border: "1px solid #d1d5db",
                           padding: "10px 12px",
@@ -1273,6 +1283,8 @@ const relTitle =
                       placeholder={t.grewUpPlaceholder}
                       style={{
                         width: "100%",
+                        maxWidth: "100%",
+                        boxSizing: "border-box" as const,
                         borderRadius: 12,
                         border: "1px solid #d1d5db",
                         padding: "10px 12px",
@@ -1291,6 +1303,8 @@ const relTitle =
                       placeholder={t.occupationPlaceholder}
                       style={{
                         width: "100%",
+                        maxWidth: "100%",
+                        boxSizing: "border-box" as const,
                         borderRadius: 12,
                         border: "1px solid #d1d5db",
                         padding: "10px 12px",
@@ -1309,6 +1323,8 @@ const relTitle =
                       placeholder={t.interestsPlaceholder}
                       style={{
                         width: "100%",
+                        maxWidth: "100%",
+                        boxSizing: "border-box" as const,
                         borderRadius: 12,
                         border: "1px solid #d1d5db",
                         padding: "10px 12px",
@@ -1328,6 +1344,8 @@ const relTitle =
                       rows={4}
                       style={{
                         width: "100%",
+                        maxWidth: "100%",
+                        boxSizing: "border-box" as const,
                         borderRadius: 12,
                         border: "1px solid #d1d5db",
                         padding: "10px 12px",
@@ -1349,6 +1367,8 @@ const relTitle =
                       rows={3}
                       style={{
                         width: "100%",
+                        maxWidth: "100%",
+                        boxSizing: "border-box" as const,
                         borderRadius: 12,
                         border: "1px solid #d1d5db",
                         padding: "10px 12px",
