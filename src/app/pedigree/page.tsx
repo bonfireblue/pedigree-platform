@@ -103,9 +103,6 @@ function sectionCardStyle(): React.CSSProperties {
     borderRadius: 16,
     background: "#ffffff",
     boxShadow: "0 8px 24px rgba(15, 23, 42, 0.06)",
-    overflow: "hidden",
-    maxWidth: "100%",
-    boxSizing: "border-box",
   };
 }
 
@@ -839,10 +836,6 @@ const relTitle =
           box-sizing: border-box;
           width: 100%;
         }
-        .pedigree-sidebar > div {
-          max-width: 100%;
-          overflow: hidden;
-        }
         @media (max-width: 768px) {
           .mobile-fab { display: flex !important; align-items: center; justify-content: center; }
           .pedigree-grid { grid-template-columns: 1fr !important; }
@@ -863,27 +856,12 @@ const relTitle =
             padding: 12px !important;
             box-sizing: border-box !important;
           }
-          .pedigree-sidebar > div {
-            max-width: calc(100vw - 24px) !important;
-            overflow: hidden !important;
-            box-sizing: border-box !important;
-          }
-          .pedigree-sidebar * {
-            max-width: 100% !important;
-            box-sizing: border-box !important;
-          }
           .pedigree-sidebar input,
           .pedigree-sidebar textarea,
           .pedigree-sidebar select {
             width: 100% !important;
             max-width: 100% !important;
             box-sizing: border-box !important;
-          }
-          .pedigree-sidebar button {
-            max-width: 100% !important;
-            box-sizing: border-box !important;
-            white-space: normal !important;
-            word-wrap: break-word !important;
           }
           .pedigree-overlay {
             display: ${sidebarOpen ? "block" : "none"} !important;
