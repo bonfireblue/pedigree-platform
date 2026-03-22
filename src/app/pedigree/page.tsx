@@ -1654,7 +1654,7 @@ const relTitle =
 
           <div style={{ ...sectionCardStyle(), padding: 16 }}>
             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.5, color: "#64748b" }}>
-              QUICK COUNTS
+              {t.quickCounts}
             </div>
 
             <div
@@ -1666,9 +1666,9 @@ const relTitle =
               }}
             >
               {[
-                { label: "Parents", value: personDetail?.parents.length ?? 0 },
-                { label: "Spouses", value: personDetail?.spouses.length ?? 0 },
-                { label: "Children", value: personDetail?.children.length ?? 0 },
+                { label: t.parents, value: personDetail?.parents.length ?? 0 },
+                { label: t.spouses, value: personDetail?.spouses.length ?? 0 },
+                { label: t.children, value: personDetail?.children.length ?? 0 },
               ].map((item) => (
                 <div
                   key={item.label}
@@ -1687,37 +1687,41 @@ const relTitle =
             </div>
           </div>
 
-          <div style={{ ...sectionCardStyle(), padding: 16, flexShrink: 0 }}>
+<div style={{ ...sectionCardStyle(), padding: 16, flexShrink: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.5, color: "#64748b" }}>
-              RELATIONSHIPS
+              {t.relationships}
             </div>
 
             <RelationshipSection
-              title="Parents"
+              title={t.parents}
               people={personDetail?.parents ?? []}
               onSelect={(id) => void selectPersonInCurrentTree(id)}
               onDelete={selectedId ? (parentId) => void deleteParentChildRelationship(parentId, selectedId) : undefined}
+              emptyText={t.none}
             />
 
             <RelationshipSection
-              title="Spouses"
+              title={t.spouses}
               people={personDetail?.spouses ?? []}
               onSelect={(id) => void selectPersonInCurrentTree(id)}
               onDelete={(spouseId) => void deleteSpouseRelationship(spouseId)}
+              emptyText={t.none}
             />
 
             <RelationshipSection
-              title="Children"
+              title={t.children}
               people={personDetail?.children ?? []}
               onSelect={(id) => void selectPersonInCurrentTree(id)}
               onDelete={selectedId ? (childId) => void deleteParentChildRelationship(selectedId, childId) : undefined}
+              emptyText={t.none}
             />
 
-<RelationshipSection
-              title="Siblings"
+            <RelationshipSection
+              title={t.siblings}
               people={personDetail?.siblings ?? []}
               onSelect={(id) => void selectPersonInCurrentTree(id)}
               onDelete={(siblingId) => void deleteSiblingRelationship(siblingId)}
+              emptyText={t.none}
             />
           </div>
         </aside>
@@ -1731,11 +1735,13 @@ function RelationshipSection({
   people,
   onSelect,
   onDelete,
+  emptyText = "None",
 }: {
   title: string;
   people: PersonLite[];
   onSelect: (id: string) => void;
   onDelete?: (id: string) => void;
+  emptyText?: string;
 }) {
   return (
     <div style={{ marginTop: 16 }}>
@@ -1753,7 +1759,7 @@ function RelationshipSection({
             fontSize: 14,
           }}
         >
-          None
+          {emptyText}
         </div>
       ) : (
         <div style={{ display: "grid", gap: 8 }}>
