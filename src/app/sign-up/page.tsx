@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { useLanguage, LanguageToggle } from "@/contexts/LanguageContext";
 
 export default function SignUpPage() {
   const router = useRouter();
+  const { t, lang } = useLanguage();
   
   const [passcode, setPasscode] = useState("");
   const [email, setEmail] = useState("");
@@ -20,17 +22,17 @@ export default function SignUpPage() {
     setError(null);
 
     if (!passcode.trim()) {
-      setError("Passcode is required to create an account.");
+      setError(t.passcodeRequired);
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+      setError(lang === "vi" ? "Mật khẩu không khớp." : "Passwords do not match.");
       return;
     }
 
     if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
+      setError(t.passwordTooShort);
       return;
     }
 
@@ -50,7 +52,16 @@ export default function SignUpPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        throw new Error(data?.error || "Sign up failed");
+        if (data?.error?.includes("passcode") || data?.error?.includes("Passcode")) {
+          throw new Error(t.invalidPasscode);
+        }
+        if (data?.error?.includes("already been used")) {
+          throw new Error(t.passcodeUsed);
+        }
+        if (data?.error?.includes("Email is already")) {
+          throw new Error(t.emailInUse);
+        }
+        throw new Error(data?.error || (lang === "vi" ? "Đăng ký thất bại" : "Sign up failed"));
       }
 
       // Auto sign-in after successful registration
@@ -61,14 +72,13 @@ export default function SignUpPage() {
       });
 
       if (result?.error) {
-        // Account created, but sign-in failed. Send them to sign-in page.
         router.push("/sign-in");
         return;
       }
 
       router.push("/pedigree");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Sign up failed");
+      setError(err instanceof Error ? err.message : (lang === "vi" ? "Đăng ký thất bại" : "Sign up failed"));
     } finally {
       setLoading(false);
     }
@@ -84,19 +94,27 @@ export default function SignUpPage() {
       flexDirection: "column",
       justifyContent: "center",
     }}>
-      <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Create Your Account</h1>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+        <LanguageToggle />
+      </div>
+
+      <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>
+        {t.createAccount}
+      </h1>
       <p style={{ opacity: 0.8, marginBottom: 20 }}>
-        Enter your passcode to join the family tree.
+        {lang === "vi" 
+          ? "Nhập mã đăng ký để tham gia cây gia đình." 
+          : "Enter your passcode to join the family tree."}
       </p>
 
       <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Passcode <span style={{ color: "crimson" }}>*</span></span>
+          <span>{t.passcode} <span style={{ color: "crimson" }}>*</span></span>
           <input
             value={passcode}
             onChange={(e) => setPasscode(e.target.value.toUpperCase())}
             required
-            placeholder="Enter your 8-character passcode"
+            placeholder={t.passcodePlaceholder}
             autoComplete="off"
             style={{ 
               padding: 10, 
@@ -111,18 +129,18 @@ export default function SignUpPage() {
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Your Name</span>
+          <span>{t.name}</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Enter your full name"
+            placeholder={lang === "vi" ? "Nhập họ và tên của bạn" : "Enter your full name"}
             autoComplete="name"
             style={{ padding: 10, border: "1px solid #ddd", borderRadius: 10 }}
           />
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Email <span style={{ color: "crimson" }}>*</span></span>
+          <span>{t.email} <span style={{ color: "crimson" }}>*</span></span>
           <input
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -134,7 +152,7 @@ export default function SignUpPage() {
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Password <span style={{ color: "crimson" }}>*</span></span>
+          <span>{t.password} <span style={{ color: "crimson" }}>*</span></span>
           <input
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -146,7 +164,7 @@ export default function SignUpPage() {
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Confirm Password <span style={{ color: "crimson" }}>*</span></span>
+          <span>{t.confirmPassword} <span style={{ color: "crimson" }}>*</span></span>
           <input
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
@@ -174,11 +192,11 @@ export default function SignUpPage() {
             fontWeight: 600,
           }}
         >
-          {loading ? "Creating..." : "Create Account"}
+          {loading ? t.creatingAccount : t.createAccount}
         </button>
 
         <a href="/sign-in" style={{ textAlign: "center", marginTop: 6 }}>
-          Already have an account? Sign in
+          {t.alreadyHaveAccount} {t.signIn}
         </a>
       </form>
     </main>

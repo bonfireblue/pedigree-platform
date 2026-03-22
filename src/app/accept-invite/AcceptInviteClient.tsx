@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useSession, signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
+import { useLanguage, LanguageToggle } from "@/contexts/LanguageContext";
 
 type Stage = "start" | "register" | "done" | "error";
 
@@ -10,6 +11,7 @@ export default function AcceptInviteClient() {
   const { status: authStatus } = useSession();
   const searchParams = useSearchParams();
   const token = useMemo(() => searchParams.get("token") ?? "", [searchParams]);
+  const { t, lang } = useLanguage();
 
   const [stage, setStage] = useState<Stage>("start");
   const [msg, setMsg] = useState<string>("");
@@ -22,7 +24,7 @@ export default function AcceptInviteClient() {
 
     if (!token) {
       setStage("error");
-      setMsg("Missing token.");
+      setMsg(lang === "vi" ? "Thiếu mã token." : "Missing token.");
       return;
     }
 
@@ -37,12 +39,12 @@ export default function AcceptInviteClient() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setStage("error");
-        setMsg(data?.error ?? `Failed with ${res.status}`);
+        setMsg(data?.error ?? (lang === "vi" ? `Thất bại với mã ${res.status}` : `Failed with ${res.status}`));
         return;
       }
 
       setStage("done");
-      setMsg("Invitation accepted. Redirecting…");
+      setMsg(lang === "vi" ? "Đã chấp nhận lời mời. Đang chuyển hướng…" : "Invitation accepted. Redirecting…");
       setTimeout(() => (window.location.href = "/pedigree"), 700);
       return;
     }
@@ -64,14 +66,14 @@ export default function AcceptInviteClient() {
 
     if (!res.ok) {
       setStage("error");
-      setMsg(data?.error ?? `Failed with ${res.status}`);
+      setMsg(data?.error ?? (lang === "vi" ? `Thất bại với mã ${res.status}` : `Failed with ${res.status}`));
       return;
     }
 
     setStage("done");
-    setMsg("Account created. Now sign in to continue.");
+    setMsg(lang === "vi" ? "Đã tạo tài khoản. Đăng nhập để tiếp tục." : "Account created. Now sign in to continue.");
 
-    // Send them to sign-in (you already have /sign-in)
+    // Send them to sign-in
     setTimeout(() => {
       window.location.href = "/sign-in";
     }, 700);
@@ -79,18 +81,24 @@ export default function AcceptInviteClient() {
 
   return (
     <>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+        <LanguageToggle />
+      </div>
+
       {stage === "start" ? (
         <>
-          <p>You were invited to claim a profile on a family pedigree.</p>
+          <p>{t.youAreInvited}</p>
 
           <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-            <button onClick={accept}>Accept</button>
-            <button onClick={() => setStage("done")}>Decline</button>
+            <button onClick={accept}>{t.acceptInvite}</button>
+            <button onClick={() => setStage("done")}>
+              {lang === "vi" ? "Từ chối" : "Decline"}
+            </button>
           </div>
 
           {authStatus === "unauthenticated" ? (
             <p style={{ marginTop: 12, opacity: 0.8 }}>
-              Already have an account?{" "}
+              {t.alreadyHaveAccount}{" "}
               <button
                 onClick={() =>
                   signIn(undefined, {
@@ -98,7 +106,7 @@ export default function AcceptInviteClient() {
                   })
                 }
               >
-                Sign in
+                {t.signIn}
               </button>
             </p>
           ) : null}
@@ -107,12 +115,16 @@ export default function AcceptInviteClient() {
 
       {stage === "register" ? (
         <>
-          <h2 style={{ marginTop: 20 }}>Create your account</h2>
-          <p>This invitation is tied to your email. Use the invited email.</p>
+          <h2 style={{ marginTop: 20 }}>{t.createAccount}</h2>
+          <p>
+            {lang === "vi" 
+              ? "Lời mời này gắn liền với email của bạn. Sử dụng email được mời."
+              : "This invitation is tied to your email. Use the invited email."}
+          </p>
 
           <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
             <label>
-              Email
+              {t.email}
               <input
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -122,7 +134,7 @@ export default function AcceptInviteClient() {
             </label>
 
             <label>
-              Password (8+ chars)
+              {t.password} (8+ {lang === "vi" ? "ký tự" : "chars"})
               <input
                 type="password"
                 value={password}
@@ -132,22 +144,26 @@ export default function AcceptInviteClient() {
               />
             </label>
 
-            <button onClick={createAccount}>Create account and claim profile</button>
+            <button onClick={createAccount}>
+              {lang === "vi" ? "Tạo tài khoản và nhận hồ sơ" : "Create account and claim profile"}
+            </button>
 
             <button onClick={() => setStage("start")} style={{ opacity: 0.8 }}>
-              Back
+              {t.back}
             </button>
           </div>
         </>
       ) : null}
 
-      {stage === "done" ? <p style={{ marginTop: 12 }}>{msg || "Done."}</p> : null}
+      {stage === "done" ? <p style={{ marginTop: 12 }}>{msg || (lang === "vi" ? "Hoàn tất." : "Done.")}</p> : null}
 
       {stage === "error" ? (
         <>
-          <p style={{ marginTop: 12 }}>Error: {msg}</p>
+          <p style={{ marginTop: 12 }}>{t.error}: {msg}</p>
           <p style={{ opacity: 0.7 }}>
-            If you already created an account, use “Sign in” and then Accept.
+            {lang === "vi" 
+              ? "Nếu bạn đã tạo tài khoản, hãy \"Đăng nhập\" rồi Chấp nhận."
+              : "If you already created an account, use \"Sign in\" and then Accept."}
           </p>
         </>
       ) : null}

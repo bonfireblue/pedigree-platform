@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { PedigreeCanvas } from "@/components/PedigreeCanvas";
+import { useLanguage, LanguageToggle } from "@/contexts/LanguageContext";
+import { translations } from "@/lib/translations";
 
 type TreeApiNode = {
   id: string;
@@ -175,75 +177,9 @@ export default function PedigreePage() {
   const [editOccupation, setEditOccupation] = useState("");
   const [editProudOf, setEditProudOf] = useState("");
   const [editStory, setEditStory] = useState("");
-  const [lang, setLang] = useState<"en" | "vi">("en");
-
-  // Translations
-  const t = {
-    en: {
-      story: "What is your story?",
-      storyPlaceholder: "Share your life story...",
-      proudOf: "What are you most proud of?",
-      proudOfPlaceholder: "Share something you're proud of...",
-      interests: "Interests & Hobbies",
-      interestsPlaceholder: "What do you enjoy doing?",
-      occupation: "Occupation",
-      occupationPlaceholder: "What do you do?",
-      grewUp: "Where did you grow up?",
-      grewUpPlaceholder: "City, Country",
-      birthDate: "Birth Date",
-      deathDate: "Death Date",
-      gender: "Gender",
-      male: "Male",
-      female: "Female",
-      other: "Other",
-      save: "Save Changes",
-      saving: "Saving...",
-      makePublic: "Make Public",
-      makePrivate: "Make Private",
-      verify: "Verify This Person",
-      verifying: "Vouching...",
-      delete: "Delete",
-      languageToggle: "Tiếng Việt",
-    },
-    vi: {
-      story: "Câu chuyện của bạn là gì?",
-      storyPlaceholder: "Chia sẻ câu chuyện cuộc đời bạn...",
-      proudOf: "Bạn tự hào nhất về điều gì?",
-      proudOfPlaceholder: "Chia sẻ điều bạn tự hào...",
-      interests: "Sở thích",
-      interestsPlaceholder: "Bạn thích làm gì?",
-      occupation: "Nghề nghiệp",
-      occupationPlaceholder: "Bạn làm nghề gì?",
-      grewUp: "Bạn lớn lên ở đâu?",
-      grewUpPlaceholder: "Thành phố, Quốc gia",
-      birthDate: "Ngày sinh",
-      deathDate: "Ngày mất",
-      gender: "Giới tính",
-      male: "Nam",
-      female: "Nữ",
-      other: "Khác",
-      save: "Lưu thay đổi",
-      saving: "Đang lưu...",
-      makePublic: "Công khai",
-      makePrivate: "Riêng tư",
-      verify: "Xác minh người này",
-      verifying: "Đang xác minh...",
-      delete: "Xóa",
-      languageToggle: "English",
-    },
-  }[lang];
-
-  // Auto-detect Vietnam timezone on mount
-  useEffect(() => {
-    try {
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      if (tz === "Asia/Ho_Chi_Minh" || tz === "Asia/Saigon") {
-        setLang("vi");
-      }
-    } catch {
-      // Ignore timezone detection errors
-    }
-  }, []);
+  
+  // Use global language context
+  const { lang, setLang, t } = useLanguage();
   const [editInterests, setEditInterests] = useState("");
   const [editPhotoUrl, setEditPhotoUrl] = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -1404,21 +1340,7 @@ async function sendInvite() {
 
                   {/* Language Toggle */}
                   <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-                    <button
-                      type="button"
-                      onClick={() => setLang(lang === "en" ? "vi" : "en")}
-                      style={{
-                        background: "transparent",
-                        border: "1px solid #d1d5db",
-                        borderRadius: 8,
-                        padding: "6px 12px",
-                        fontSize: 12,
-                        cursor: "pointer",
-                        color: "#6b7280",
-                      }}
-                    >
-                      {t.languageToggle}
-                    </button>
+                    <LanguageToggle />
                   </div>
 
                   {/* Actions */}
@@ -1429,7 +1351,7 @@ async function sendInvite() {
                       disabled={!selectedId || editBusy}
                       style={actionButtonStyle(true)}
                     >
-                      {editBusy ? t.saving : t.save}
+                      {editBusy ? t.saving : t.saveChanges}
                     </button>
 
                     <button
@@ -1470,7 +1392,7 @@ async function sendInvite() {
                           border: "1px solid #fca5a5",
                         }}
                       >
-                        {t.delete}
+                        {t.deletePerson}
                       </button>
                     )}
                   </div>

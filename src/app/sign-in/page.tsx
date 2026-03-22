@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { useLanguage, LanguageToggle } from "@/contexts/LanguageContext";
 
 export default function SignInPage() {
   const router = useRouter();
+  const { t } = useLanguage();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,7 +28,7 @@ export default function SignInPage() {
     setLoading(false);
 
     if (result?.error) {
-      setError("Invalid email or password.");
+      setError(t.invalidCredentials);
       return;
     }
 
@@ -45,17 +47,21 @@ export default function SignInPage() {
         justifyContent: "center",
       }}
     >
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+        <LanguageToggle />
+      </div>
+
       <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>
-        Sign In
+        {t.signIn}
       </h1>
 
       <p style={{ opacity: 0.8, marginBottom: 24 }}>
-        Sign in to access your family tree.
+        {t.lang === "vi" ? "Đăng nhập để xem cây gia đình của bạn." : "Sign in to access your family tree."}
       </p>
 
       <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Email</span>
+          <span>{t.email}</span>
           <input
             type="email"
             required
@@ -71,7 +77,7 @@ export default function SignInPage() {
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Password</span>
+          <span>{t.password}</span>
           <input
             type="password"
             required
@@ -91,7 +97,7 @@ export default function SignInPage() {
             href="/forgot-password"
             style={{ fontSize: 14, color: "#666" }}
           >
-            Forgot password?
+            {t.forgotPassword}
           </a>
         </div>
 
@@ -114,13 +120,13 @@ export default function SignInPage() {
             cursor: "pointer"
           }}
         >
-          {loading ? "Signing in..." : "Sign In"}
+          {loading ? t.signingIn : t.signIn}
         </button>
       </form>
 
       <div style={{ marginTop: 16, textAlign: "center" }}>
         <a href="/sign-up">
-          Don&apos;t have an account? Sign up
+          {t.dontHaveAccount} {t.signUp}
         </a>
       </div>
     </main>

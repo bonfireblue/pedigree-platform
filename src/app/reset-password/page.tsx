@@ -2,11 +2,13 @@
 
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useLanguage, LanguageToggle } from "@/contexts/LanguageContext";
 
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
+  const { t, lang } = useLanguage();
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -18,17 +20,17 @@ function ResetPasswordForm() {
     setError(null);
 
     if (!token) {
-      setError("Invalid or missing reset token.");
+      setError(lang === "vi" ? "Token đặt lại không hợp lệ hoặc bị thiếu." : "Invalid or missing reset token.");
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+      setError(lang === "vi" ? "Mật khẩu không khớp." : "Passwords do not match.");
       return;
     }
 
     if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
+      setError(t.passwordTooShort);
       return;
     }
 
@@ -43,12 +45,12 @@ function ResetPasswordForm() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        throw new Error(data?.error || "Failed to reset password");
+        throw new Error(data?.error || (lang === "vi" ? "Không thể đặt lại mật khẩu" : "Failed to reset password"));
       }
 
       router.push("/sign-in?reset=success");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Something went wrong";
+      const message = err instanceof Error ? err.message : t.somethingWentWrong;
       setError(message);
     } finally {
       setLoading(false);
@@ -58,14 +60,19 @@ function ResetPasswordForm() {
   if (!token) {
     return (
       <main style={{ maxWidth: 420, margin: "0 auto", padding: "40px 20px", minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+          <LanguageToggle />
+        </div>
         <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>
-          Invalid Link
+          {lang === "vi" ? "Liên kết không hợp lệ" : "Invalid Link"}
         </h1>
         <p style={{ opacity: 0.8, marginBottom: 24 }}>
-          This password reset link is invalid or has expired.
+          {lang === "vi" 
+            ? "Liên kết đặt lại mật khẩu này không hợp lệ hoặc đã hết hạn." 
+            : "This password reset link is invalid or has expired."}
         </p>
         <a href="/forgot-password" style={{ color: "#111", textDecoration: "underline" }}>
-          Request a new reset link
+          {lang === "vi" ? "Yêu cầu liên kết mới" : "Request a new reset link"}
         </a>
       </main>
     );
@@ -73,17 +80,20 @@ function ResetPasswordForm() {
 
   return (
     <main style={{ maxWidth: 420, margin: "0 auto", padding: "40px 20px", minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+        <LanguageToggle />
+      </div>
       <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>
-        Reset Password
+        {t.resetPassword}
       </h1>
 
       <p style={{ opacity: 0.8, marginBottom: 24 }}>
-        Enter your new password below.
+        {lang === "vi" ? "Nhập mật khẩu mới của bạn bên dưới." : "Enter your new password below."}
       </p>
 
       <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
         <label style={{ display: "grid", gap: 6 }}>
-          <span>New Password</span>
+          <span>{t.newPassword}</span>
           <input
             type="password"
             required
@@ -99,7 +109,7 @@ function ResetPasswordForm() {
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Confirm New Password</span>
+          <span>{t.confirmPassword}</span>
           <input
             type="password"
             required
@@ -131,12 +141,12 @@ function ResetPasswordForm() {
             cursor: "pointer",
           }}
         >
-          {loading ? "Resetting..." : "Reset Password"}
+          {loading ? t.resettingPassword : t.resetPassword}
         </button>
       </form>
 
       <div style={{ marginTop: 16, textAlign: "center" }}>
-        <a href="/sign-in">Back to sign in</a>
+        <a href="/sign-in">{t.backToSignIn}</a>
       </div>
     </main>
   );
@@ -144,7 +154,7 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div style={{ maxWidth: 420, margin: "80px auto", padding: 16 }}>Loading...</div>}>
+    <Suspense fallback={<div style={{ maxWidth: 420, margin: "80px auto", padding: 16 }}>{/* Loading */}</div>}>
       <ResetPasswordForm />
     </Suspense>
   );
