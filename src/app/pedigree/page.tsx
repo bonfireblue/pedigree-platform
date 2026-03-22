@@ -103,6 +103,9 @@ function sectionCardStyle(): React.CSSProperties {
     borderRadius: 16,
     background: "#ffffff",
     boxShadow: "0 8px 24px rgba(15, 23, 42, 0.06)",
+    overflow: "hidden",
+    maxWidth: "100%",
+    boxSizing: "border-box",
   };
 }
 
@@ -834,6 +837,11 @@ const relTitle =
         .pedigree-sidebar textarea,
         .pedigree-sidebar select {
           box-sizing: border-box;
+          width: 100%;
+        }
+        .pedigree-sidebar > div {
+          max-width: 100%;
+          overflow: hidden;
         }
         @media (max-width: 768px) {
           .mobile-fab { display: flex !important; align-items: center; justify-content: center; }
@@ -841,9 +849,10 @@ const relTitle =
           .pedigree-sidebar { 
             position: fixed !important; 
             top: 0 !important; 
+            left: 0 !important;
             right: 0 !important; 
             bottom: 0 !important; 
-            width: 100% !important;
+            width: 100vw !important;
             max-width: 100vw !important;
             z-index: 40 !important;
             transform: translateX(${sidebarOpen ? "0" : "100%"});
@@ -851,7 +860,12 @@ const relTitle =
             overflow-y: auto !important;
             overflow-x: hidden !important;
             background: #f8fafc !important;
-            padding: 16px !important;
+            padding: 12px !important;
+            box-sizing: border-box !important;
+          }
+          .pedigree-sidebar > div {
+            max-width: calc(100vw - 24px) !important;
+            overflow: hidden !important;
             box-sizing: border-box !important;
           }
           .pedigree-sidebar * {
@@ -860,10 +874,16 @@ const relTitle =
           }
           .pedigree-sidebar input,
           .pedigree-sidebar textarea,
-          .pedigree-sidebar select,
+          .pedigree-sidebar select {
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+          }
           .pedigree-sidebar button {
             max-width: 100% !important;
             box-sizing: border-box !important;
+            white-space: normal !important;
+            word-wrap: break-word !important;
           }
           .pedigree-overlay {
             display: ${sidebarOpen ? "block" : "none"} !important;
