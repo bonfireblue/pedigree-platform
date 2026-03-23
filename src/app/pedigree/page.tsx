@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { PedigreeCanvas } from "@/components/PedigreeCanvas";
 import { useLanguage, LanguageToggle } from "@/contexts/LanguageContext";
-import { translations } from "@/lib/translations";
 
 type TreeApiNode = {
   id: string;

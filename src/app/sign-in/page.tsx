@@ -7,7 +7,7 @@ import { useLanguage, LanguageToggle } from "@/contexts/LanguageContext";
 
 export default function SignInPage() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -56,7 +56,7 @@ export default function SignInPage() {
       </h1>
 
       <p style={{ opacity: 0.8, marginBottom: 24 }}>
-        {t.lang === "vi" ? "Đăng nhập để xem cây gia đình của bạn." : "Sign in to access your family tree."}
+        {lang === "vi" ? "Đăng nhập để xem cây gia đình của bạn." : "Sign in to access your family tree."}
       </p>
 
       <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
