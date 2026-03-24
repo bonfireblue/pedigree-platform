@@ -1,3 +1,4 @@
+// Build trigger: March 24 2026
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -30,7 +31,7 @@ async function computeCanInvite(params: { meId: string; familyGraphId: string; r
     LIMIT 10
   `;
 
-  return firstTenAccepted.some((r: { acceptedByUserId: string }) => r.acceptedByUserId === meId);
+  return firstTenAccepted.some((r) => r.acceptedByUserId === meId);
 }
 
 export async function GET() {
