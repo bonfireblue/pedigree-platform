@@ -36,15 +36,21 @@ export function assertNotSelf(aId: string, bId: string, code = "INVALID_RELATION
   }
 }
 
-export async function getTwoPeopleForRelationship(aId: string, bId: string) {
+type PersonForRelationship = {
+  id: string;
+  createdById: string;
+  familyGraphId: string | null;
+};
+
+export async function getTwoPeopleForRelationship(aId: string, bId: string): Promise<{ a: PersonForRelationship; b: PersonForRelationship }> {
   const rows = await sql`
     SELECT id, "createdById", "familyGraphId"
     FROM "Person"
     WHERE id IN (${aId}, ${bId}) AND "deletedAt" IS NULL
   `;
 
-  const a = rows.find((r: { id: string }) => r.id === aId);
-  const b = rows.find((r: { id: string }) => r.id === bId);
+  const a = rows.find((r) => r.id === aId) as PersonForRelationship | undefined;
+  const b = rows.find((r) => r.id === bId) as PersonForRelationship | undefined;
 
   if (!a || !b) {
     throw new RelationshipError("NOT_FOUND", 404);
