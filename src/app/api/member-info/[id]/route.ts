@@ -119,24 +119,33 @@ export async function PATCH(req: Request, ctx: Ctx) {
       return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
     }
 
-    const updates: string[] = [];
-    const vals: unknown[] = [];
-    let idx = 1;
+    // Build update object with only defined fields
+    const hasUpdates = 
+      body.fullName !== undefined ||
+      body.gender !== undefined ||
+      body.birthDate !== undefined ||
+      body.deathDate !== undefined ||
+      body.isPrivate !== undefined ||
+      body.photoUrl !== undefined;
 
-    if (body.fullName !== undefined) { updates.push(`"fullName" = $${idx++}`); vals.push(body.fullName); }
-    if (body.gender !== undefined) { updates.push(`"gender" = $${idx++}`); vals.push(body.gender); }
-    if (body.birthDate !== undefined) { updates.push(`"birthDate" = $${idx++}`); vals.push(body.birthDate || null); }
-    if (body.deathDate !== undefined) { updates.push(`"deathDate" = $${idx++}`); vals.push(body.deathDate || null); }
-    if (body.isPrivate !== undefined) { updates.push(`"isPrivate" = $${idx++}`); vals.push(body.isPrivate); }
-    if (body.photoUrl !== undefined) { updates.push(`"photoUrl" = $${idx++}`); vals.push(body.photoUrl); }
-
-    if (updates.length === 0) {
+    if (!hasUpdates) {
       return NextResponse.json({ error: "NO_UPDATES" }, { status: 400 });
     }
 
-    vals.push(id);
-    const updateQuery = `UPDATE "Person" SET ${updates.join(", ")}, "updatedAt" = NOW() WHERE id = $${idx} RETURNING *`;
-    const updated = await sql(updateQuery, vals);
+    // Use individual updates with COALESCE to only update provided fields
+    const updated = await sql`
+      UPDATE "Person" 
+      SET 
+        "fullName" = COALESCE(${body.fullName !== undefined ? body.fullName : null}, "fullName"),
+        "gender" = CASE WHEN ${body.gender !== undefined} THEN ${body.gender ?? null} ELSE "gender" END,
+        "birthDate" = CASE WHEN ${body.birthDate !== undefined} THEN ${body.birthDate || null}::timestamp ELSE "birthDate" END,
+        "deathDate" = CASE WHEN ${body.deathDate !== undefined} THEN ${body.deathDate || null}::timestamp ELSE "deathDate" END,
+        "isPrivate" = CASE WHEN ${body.isPrivate !== undefined} THEN ${body.isPrivate ?? false} ELSE "isPrivate" END,
+        "photoUrl" = CASE WHEN ${body.photoUrl !== undefined} THEN ${body.photoUrl ?? null} ELSE "photoUrl" END,
+        "updatedAt" = NOW()
+      WHERE id = ${id}
+      RETURNING *
+    `;
 
     return NextResponse.json({ person: updated[0] });
   } catch (error) {
