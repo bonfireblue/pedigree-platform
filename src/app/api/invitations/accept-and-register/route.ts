@@ -27,7 +27,7 @@ export async function POST(req: Request) {
 
     const invitation = await getPendingInvitationOrThrow(token);
 
-    if (normalizeEmail(invitation.email) !== email) {
+    if (!invitation.email || normalizeEmail(invitation.email) !== email) {
       return NextResponse.json({ error: "EMAIL_MISMATCH" }, { status: 400 });
     }
 
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
         throw new InvitationError("INVITE_EXPIRED", 400);
       }
 
-      if (normalizeEmail(freshInvite.email) !== email) {
+      if (!freshInvite.email || normalizeEmail(freshInvite.email) !== email) {
         throw new InvitationError("EMAIL_MISMATCH", 400);
       }
 
