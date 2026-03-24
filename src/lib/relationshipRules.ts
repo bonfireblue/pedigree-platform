@@ -274,7 +274,7 @@ export async function getSpouseDeleteWarnings(
   const aChildren = await sql`
     SELECT "childId" FROM "ParentChild" WHERE "parentId" = ${aId}
   `;
-  const aChildIds = aChildren.map((r: { childId: string }) => r.childId);
+  const aChildIds = aChildren.map((r) => r.childId as string);
 
   if (aChildIds.length > 0) {
     // Count how many are also parented by bId

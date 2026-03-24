@@ -1,4 +1,3 @@
-// Build trigger: March 24 2026
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";

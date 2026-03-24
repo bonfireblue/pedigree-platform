@@ -16,7 +16,7 @@ export async function requireMe(): Promise<Me | null> {
   const users = await sql`SELECT id, email, role FROM "User" WHERE email = ${email} LIMIT 1`;
   if (users.length === 0) return null;
 
-  const user = users[0];
+  const user = users[0] as { id: string; email: string; role: string };
   const isAdmin = user.role === "ADMIN";
 
   return { id: user.id, email: user.email, isAdmin };

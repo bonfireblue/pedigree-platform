@@ -160,13 +160,13 @@ export async function GET(req: Request) {
       `;
 
       const bloodCandidateIds = dedupe([
-        ...parentRows.map((r) => r.parentId),
-        ...childRows.map((r) => r.childId),
+        ...parentRows.map((r) => r.parentId as string),
+        ...childRows.map((r) => r.childId as string),
       ]);
 
       const spouseCandidateIds = dedupe([
-        ...spouseRowsA.map((r: { bId: string }) => r.bId),
-        ...spouseRowsB.map((r: { aId: string }) => r.aId),
+        ...spouseRowsA.map((r) => r.bId as string),
+        ...spouseRowsB.map((r) => r.aId as string),
       ]);
 
       const candidateIds = dedupe([...bloodCandidateIds, ...spouseCandidateIds]).filter(
