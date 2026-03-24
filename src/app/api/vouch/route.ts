@@ -96,11 +96,12 @@ export async function POST(req: Request) {
 
     // Create vouch record and verify the person
     await prisma.$transaction(async (tx) => {
-      // Create vouch record
+      // Create vouch record - Vouch links users, not persons
+      // vouchedUserId is the user who owns the target person
       await tx.vouch.create({
         data: {
-          voucherUserId: me.id,
-          voucheePersonId: targetPersonId,
+          vouchedByUserId: me.id,
+          vouchedUserId: targetPerson.claimedByUserId,
           familyGraphId: membership.familyGraphId,
         },
       });
