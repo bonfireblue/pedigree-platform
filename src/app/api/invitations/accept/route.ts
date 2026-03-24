@@ -36,7 +36,7 @@ export async function POST(req: Request) {
 
     // Check if the logged-in user's email matches the invitation email
     // Phone-based invites can be accepted by any logged-in user (they verify via SMS link)
-    if (invitation.email && normalizeEmail(invitation.email) !== normalizeEmail(me.email)) {
+    if (invitation.email && me.email && normalizeEmail(invitation.email) !== normalizeEmail(me.email)) {
       return NextResponse.json({ error: "EMAIL_MISMATCH" }, { status: 400 });
     }
 
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
         throw new InvitationError("INVITE_EXPIRED", 400);
       }
 
-      if (freshInvite.email && normalizeEmail(freshInvite.email) !== normalizeEmail(me.email)) {
+      if (freshInvite.email && me.email && normalizeEmail(freshInvite.email) !== normalizeEmail(me.email)) {
         throw new InvitationError("EMAIL_MISMATCH", 400);
       }
 
