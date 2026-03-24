@@ -138,8 +138,8 @@ export async function GET(req: Request) {
 
       const bloodBatch = batch.filter((id) => kindById.get(id) !== "spouse");
 
-      let parentRows: Array<{ parentId: string }> = [];
-      let childRows: Array<{ childId: string }> = [];
+      let parentRows: Record<string, unknown>[] = [];
+      let childRows: Record<string, unknown>[] = [];
 
       if (bloodBatch.length > 0) {
         parentRows = await sql`
