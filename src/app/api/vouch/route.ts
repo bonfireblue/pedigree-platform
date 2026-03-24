@@ -76,6 +76,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "PERSON_NOT_CLAIMED" }, { status: 400 });
     }
 
+    const targetUserId = targetPerson.claimedByUserId;
+
     if (targetPerson.isVerified) {
       return NextResponse.json({ error: "ALREADY_VERIFIED" }, { status: 400 });
     }
@@ -101,7 +103,7 @@ export async function POST(req: Request) {
       await tx.vouch.create({
         data: {
           vouchedByUserId: me.id,
-          vouchedUserId: targetPerson.claimedByUserId,
+          vouchedUserId: targetUserId,
           familyGraphId: membership.familyGraphId,
         },
       });
