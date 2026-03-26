@@ -5,18 +5,20 @@ import { useSession } from "next-auth/react";
 import { PedigreeCanvas } from "@/components/PedigreeCanvas";
 import { useLanguage, LanguageToggle } from "@/contexts/LanguageContext";
 
-// Format phone number as user types: (XXX) XXX-XXXX
+// Format phone number as user types - supports up to 12 digits for international
 function formatPhoneNumber(value: string): string {
   // Remove all non-digits
   const digits = value.replace(/\D/g, "");
   
-  // Limit to 10 digits for US numbers
-  const limited = digits.slice(0, 10);
+  // Limit to 12 digits to support international numbers
+  const limited = digits.slice(0, 12);
   
   if (limited.length === 0) return "";
   if (limited.length <= 3) return `(${limited}`;
   if (limited.length <= 6) return `(${limited.slice(0, 3)}) ${limited.slice(3)}`;
-  return `(${limited.slice(0, 3)}) ${limited.slice(3, 6)}-${limited.slice(6)}`;
+  if (limited.length <= 10) return `(${limited.slice(0, 3)}) ${limited.slice(3, 6)}-${limited.slice(6)}`;
+  // For numbers longer than 10 digits (international), add remaining digits
+  return `(${limited.slice(0, 3)}) ${limited.slice(3, 6)}-${limited.slice(6, 10)}-${limited.slice(10)}`;
 }
 
 // Get raw digits from formatted phone
@@ -631,9 +633,9 @@ setEditFirstName(detail.person.firstName ?? "");
       if (hasEmail) {
         payload.email = inviteEmail.trim();
       }
-      // Add phone if provided (as +1XXXXXXXXXX format for US numbers)
+      // Add phone if provided - prepend + for international format
       if (hasPhone) {
-        payload.phone = `+1${phoneDigits}`;
+        payload.phone = `+${phoneDigits}`;
       }
 
       const res = await fetch("/api/invitations", {
@@ -1503,12 +1505,12 @@ const relTitle =
                       </div>
                       <div>
                         <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 4 }}>
-                          {t.phone}
+                          {t.phone} <span style={{ fontWeight: 400, color: "#9ca3af" }}>(with country code)</span>
                         </label>
                         <input
                           value={invitePhone}
                           onChange={(e) => setInvitePhone(formatPhoneNumber(e.target.value))}
-                          placeholder="(555) 123-4567"
+                          placeholder="(1) 555-123-4567"
                           type="tel"
                           style={{
                             width: "100%",
