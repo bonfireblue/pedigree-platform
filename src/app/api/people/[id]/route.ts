@@ -255,3 +255,55 @@ export async function PATCH(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
   }
 }
+
+export async function DELETE(req: Request, ctx: Ctx) {
+  const lim = rateLimit({ key: `people_delete:${clientKey(req)}`, limit: 30, windowMs: 60_000 });
+  if (!lim.ok) return NextResponse.json({ error: "RATE_LIMIT" }, { status: 429 });
+
+  try {
+    const me = await requireMe();
+    if (!me) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+
+    const { id } = await ctx.params;
+
+    const existing = await prisma.person.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        createdById: true,
+        claimedByUserId: true,
+        familyGraphId: true,
+        deletedAt: true,
+      },
+    });
+
+    if (!existing || existing.deletedAt) {
+      return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+    }
+
+    // Only the creator can delete a person
+    if (existing.createdById !== me.id && !me.isAdmin) {
+      return NextResponse.json({ error: "ONLY_CREATOR_CAN_DELETE" }, { status: 403 });
+    }
+
+    // Cannot delete a claimed person (someone who has accepted their profile)
+    if (existing.claimedByUserId) {
+      return NextResponse.json({ error: "CANNOT_DELETE_CLAIMED_PERSON" }, { status: 403 });
+    }
+
+    // Soft delete: set deletedAt and deletedByUserId
+    await prisma.person.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+        deletedByUserId: me.id,
+        purgeAfter: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+      },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("DELETE /api/people/[id] failed", error);
+    return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
+  }
+}

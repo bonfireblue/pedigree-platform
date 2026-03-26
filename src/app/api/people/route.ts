@@ -135,6 +135,25 @@ export async function POST(req: Request) {
 
     const fullName = normalizeFullName(parsed.json?.fullName);
     const isPrivate = typeof parsed.json?.isPrivate === "boolean" ? parsed.json.isPrivate : false;
+    
+    // Extract firstName and lastName from fullName if not provided separately
+    const providedFirstName = typeof parsed.json?.firstName === "string" ? parsed.json.firstName.trim() : null;
+    const providedLastName = typeof parsed.json?.lastName === "string" ? parsed.json.lastName.trim() : null;
+    
+    // If firstName/lastName not provided, try to parse from fullName
+    let firstName = providedFirstName;
+    let lastName = providedLastName;
+    
+    if (!firstName && !lastName && fullName) {
+      const nameParts = fullName.split(" ");
+      if (nameParts.length >= 2) {
+        firstName = nameParts[0];
+        lastName = nameParts.slice(1).join(" ");
+      } else {
+        firstName = fullName;
+        lastName = null;
+      }
+    }
 
     if (!fullName) {
       return NextResponse.json({ error: "INVALID_FULL_NAME" }, { status: 400 });
@@ -147,12 +166,12 @@ export async function POST(req: Request) {
     const personId = crypto.randomUUID();
 
     await sql`
-      INSERT INTO "Person" (id, "fullName", "isPrivate", "createdById", "familyGraphId", "createdAt", "updatedAt")
-      VALUES (${personId}, ${fullName}, ${isPrivate}, ${me.id}, ${membership.familyGraphId}, NOW(), NOW())
+      INSERT INTO "Person" (id, "fullName", "firstName", "lastName", "isPrivate", "createdById", "familyGraphId", "createdAt", "updatedAt")
+      VALUES (${personId}, ${fullName}, ${firstName}, ${lastName}, ${isPrivate}, ${me.id}, ${membership.familyGraphId}, NOW(), NOW())
     `;
 
     const personRows = await sql`
-      SELECT id, "fullName", "createdAt", "isPrivate", "claimedByUserId", "familyGraphId"
+      SELECT id, "fullName", "firstName", "lastName", "createdAt", "isPrivate", "claimedByUserId", "familyGraphId"
       FROM "Person"
       WHERE id = ${personId}
     `;
@@ -164,6 +183,8 @@ export async function POST(req: Request) {
         person: {
           id: person.id,
           fullName: person.fullName,
+          firstName: person.firstName,
+          lastName: person.lastName,
           createdAt: new Date(person.createdAt).toISOString(),
           isPrivate: person.isPrivate,
           claimedByUserId: person.claimedByUserId,
