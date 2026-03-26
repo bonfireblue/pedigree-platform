@@ -109,13 +109,14 @@ model Membership {
   @@index([invitedByUserId])
 }
 
+// Invitation - email and phone are both optional (at least one required)
 model Invitation {
   id        String   @id @default(uuid())
   createdAt DateTime @default(now())
 
   token  String           @unique
-  email  String?
-  phone  String?
+  email  String?          // Optional - can invite by phone only
+  phone  String?          // Optional - can invite by email only
   status InvitationStatus @default(PENDING)
 
   familyGraphId String
