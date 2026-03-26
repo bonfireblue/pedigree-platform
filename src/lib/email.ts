@@ -2,8 +2,10 @@ import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Use your verified domain email, or onboarding@resend.dev for testing
-const FROM_EMAIL = process.env.EMAIL_FROM || 'Pedigree Platform <onboarding@resend.dev>';
+// Email configuration
+const INVITE_FROM_EMAIL = 'Pedigree Roots <invite@pedigreeroots.com>';
+const SUPPORT_FROM_EMAIL = 'Pedigree Roots <support@pedigreeroots.com>';
+const REPLY_TO_EMAIL = 'support@pedigreeroots.com';
 
 export async function sendInvitationEmail(params: {
   to: string;
@@ -14,7 +16,8 @@ export async function sendInvitationEmail(params: {
   const { to, inviterName, personName, inviteUrl } = params;
 
   const { data, error } = await resend.emails.send({
-    from: FROM_EMAIL,
+    from: INVITE_FROM_EMAIL,
+    replyTo: REPLY_TO_EMAIL,
     to: [to],
     subject: `${inviterName} invited you to join the family tree / ${inviterName} mời bạn tham gia cây gia đình`,
     html: `
@@ -65,7 +68,8 @@ export async function sendPasswordResetEmail(params: {
   const { to, resetUrl } = params;
 
   const { data, error } = await resend.emails.send({
-    from: FROM_EMAIL,
+    from: SUPPORT_FROM_EMAIL,
+    replyTo: REPLY_TO_EMAIL,
     to: [to],
     subject: 'Reset your password / Đặt lại mật khẩu',
     html: `
