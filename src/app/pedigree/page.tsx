@@ -182,7 +182,6 @@ export default function PedigreePage() {
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [invitePhone, setInvitePhone] = useState("");
-  const [inviteMethod, setInviteMethod] = useState<"email" | "phone">("email");
   const [inviteBusy, setInviteBusy] = useState(false);
   const [vouchBusy, setVouchBusy] = useState(false);
   const [showInviteConfirm, setShowInviteConfirm] = useState(false);
@@ -608,14 +607,17 @@ setEditFirstName(detail.person.firstName ?? "");
 // Show confirmation before sending invite
   function handleInviteClick() {
     const phoneDigits = getPhoneDigits(invitePhone);
-    const contact = inviteMethod === "email" ? inviteEmail.trim() : phoneDigits;
-    if (!selectedId || !contact) return;
+    const hasEmail = inviteEmail.trim().length > 0;
+    const hasPhone = phoneDigits.length >= 10;
+    if (!selectedId || (!hasEmail && !hasPhone)) return;
     setShowInviteConfirm(true);
   }
 
   async function sendInvite() {
     const phoneDigits = getPhoneDigits(invitePhone);
-    if (!selectedId) return;
+    const hasEmail = inviteEmail.trim().length > 0;
+    const hasPhone = phoneDigits.length >= 10;
+    if (!selectedId || (!hasEmail && !hasPhone)) return;
     
     setInviteBusy(true);
     setError(null);
@@ -625,10 +627,12 @@ setEditFirstName(detail.person.firstName ?? "");
       const payload: { targetPersonId: string; email?: string; phone?: string } = {
         targetPersonId: selectedId,
       };
-      if (inviteMethod === "email") {
+      // Add email if provided
+      if (hasEmail) {
         payload.email = inviteEmail.trim();
-      } else {
-        // Send as +1XXXXXXXXXX format for US numbers
+      }
+      // Add phone if provided (as +1XXXXXXXXXX format for US numbers)
+      if (hasPhone) {
         payload.phone = `+1${phoneDigits}`;
       }
 
@@ -1477,83 +1481,55 @@ const relTitle =
                       {t.inviteToClaim}
                     </div>
 
-                    {/* Email/Phone toggle */}
-                    <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                          <button
-                            type="button"
-                            onClick={() => setInviteMethod("email")}
-                            style={{
-                              flex: 1,
-                              padding: "8px 12px",
-                              borderRadius: 8,
-                              border: "1px solid #d1d5db",
-                              background: inviteMethod === "email" ? "#111827" : "#ffffff",
-                              color: inviteMethod === "email" ? "#ffffff" : "#111827",
-                              fontWeight: 600,
-                              fontSize: 13,
-                              cursor: "pointer",
-                            }}
-                          >
-                            {t.email}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setInviteMethod("phone")}
-                            style={{
-                              flex: 1,
-                              padding: "8px 12px",
-                              borderRadius: 8,
-                              border: "1px solid #d1d5db",
-                              background: inviteMethod === "phone" ? "#111827" : "#ffffff",
-                              color: inviteMethod === "phone" ? "#ffffff" : "#111827",
-                              fontWeight: 600,
-                              fontSize: 13,
-                              cursor: "pointer",
-                            }}
-                          >
-                            {t.phone}
-                          </button>
-                        </div>
-
-                        <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                          {inviteMethod === "email" ? (
-                            <input
-                              value={inviteEmail}
-                              onChange={(e) => setInviteEmail(e.target.value)}
-                              placeholder={t.emailPlaceholder}
-                              type="email"
-                              style={{
-                                width: "100%",
-                                borderRadius: 12,
-                                border: "1px solid #d1d5db",
-                                padding: "10px 12px",
-                              }}
-                            />
-                          ) : (
-                            <input
-                              value={invitePhone}
-                              onChange={(e) => setInvitePhone(formatPhoneNumber(e.target.value))}
-                              placeholder="(555) 123-4567"
-                              type="tel"
-                              style={{
-                                width: "100%",
-                                borderRadius: 12,
-                                border: "1px solid #d1d5db",
-                                padding: "10px 12px",
-                                fontFamily: "system-ui, -apple-system, sans-serif",
-                                letterSpacing: "0.5px",
-                              }}
-                            />
-                          )}
-                          <button
-                            type="button"
-                            onClick={handleInviteClick}
-                            disabled={(inviteMethod === "email" ? !inviteEmail.trim() : getPhoneDigits(invitePhone).length < 10) || inviteBusy}
-                            style={actionButtonStyle(false)}
-                          >
-                            {inviteBusy ? t.sendingInvite : t.sendInvite}
-                          </button>
-                        </div>
+                    {/* Email and Phone inputs */}
+                    <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+                      <div>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 4 }}>
+                          {t.email}
+                        </label>
+                        <input
+                          value={inviteEmail}
+                          onChange={(e) => setInviteEmail(e.target.value)}
+                          placeholder={t.emailPlaceholder}
+                          type="email"
+                          style={{
+                            width: "100%",
+                            borderRadius: 10,
+                            border: "1px solid #d1d5db",
+                            padding: "10px 12px",
+                            fontSize: 14,
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 4 }}>
+                          {t.phone}
+                        </label>
+                        <input
+                          value={invitePhone}
+                          onChange={(e) => setInvitePhone(formatPhoneNumber(e.target.value))}
+                          placeholder="(555) 123-4567"
+                          type="tel"
+                          style={{
+                            width: "100%",
+                            borderRadius: 10,
+                            border: "1px solid #d1d5db",
+                            padding: "10px 12px",
+                            fontSize: 14,
+                            fontFamily: "system-ui, -apple-system, sans-serif",
+                            letterSpacing: "0.5px",
+                          }}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleInviteClick}
+                        disabled={(!inviteEmail.trim() && getPhoneDigits(invitePhone).length < 10) || inviteBusy}
+                        style={actionButtonStyle(false)}
+                      >
+                        {inviteBusy ? t.sendingInvite : t.sendInvite}
+                      </button>
+                    </div>
                   </div>
                 ) : null}
               </>
@@ -1827,11 +1803,12 @@ const relTitle =
               {t.invitePerson}
             </h3>
             <p style={{ marginTop: 12, fontSize: 14, color: "#6b7280", lineHeight: 1.5 }}>
-              {inviteMethod === "email" 
-                ? `Send invite to ${inviteEmail}?`
-                : `Send invite to ${invitePhone}?`
-              }
+              Send invite to:
             </p>
+            <div style={{ marginTop: 8, fontSize: 14, color: "#111827" }}>
+              {inviteEmail.trim() && <div>{inviteEmail}</div>}
+              {getPhoneDigits(invitePhone).length >= 10 && <div>{invitePhone}</div>}
+            </div>
             <div style={{ display: "flex", gap: 12, marginTop: 20, justifyContent: "flex-end" }}>
               <button
                 type="button"
