@@ -3,6 +3,7 @@ import { randomBytes } from "crypto";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { sql } from "@/lib/neon-db";
 import { readJson } from "@/lib/body";
 import {
   InvitationError,
@@ -95,19 +96,16 @@ export async function POST(req: Request) {
     });
 
     const token = randomBytes(32).toString("hex");
+    const invitationId = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
 
-    const invitation = await prisma.invitation.create({
-      data: {
-        token,
-        email,
-        phone,
-        familyGraphId: membership.familyGraphId,
-        targetPersonId,
-        inviterUserId: me.id,
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
-      },
-      select: { id: true, token: true, email: true, phone: true, targetPersonId: true, expiresAt: true },
-    });
+    // Use raw SQL to bypass Prisma's cached schema (email column is now nullable)
+    await sql`
+      INSERT INTO "Invitation" (id, token, email, phone, "familyGraphId", "targetPersonId", "inviterUserId", "expiresAt", "createdAt")
+      VALUES (${invitationId}, ${token}, ${email}, ${phone}, ${membership.familyGraphId}, ${targetPersonId}, ${me.id}, ${expiresAt}, NOW())
+    `;
+
+    const invitation = { id: invitationId, token, email, phone, targetPersonId, expiresAt };
 
     const inviteUrl = `${process.env.NEXTAUTH_URL}/accept-invite?token=${invitation.token}`;
 
