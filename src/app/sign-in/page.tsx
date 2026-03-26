@@ -123,12 +123,6 @@ export default function SignInPage() {
           {loading ? t.signingIn : t.signIn}
         </button>
       </form>
-
-      <div style={{ marginTop: 16, textAlign: "center" }}>
-        <a href="/sign-up">
-          {t.dontHaveAccount} {t.signUp}
-        </a>
-      </div>
     </main>
   );
 }
