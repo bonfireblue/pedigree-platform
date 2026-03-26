@@ -1,10 +1,28 @@
 "use client";
-// Pedigree page - March 17 2026 rebuild v3
+// Pedigree page - March 17 2026 rebuild v4
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { PedigreeCanvas } from "@/components/PedigreeCanvas";
-import { MobileShareButton } from "@/components/MobileShareButton";
 import { useLanguage, LanguageToggle } from "@/contexts/LanguageContext";
+
+// Format phone number as user types: (XXX) XXX-XXXX
+function formatPhoneNumber(value: string): string {
+  // Remove all non-digits
+  const digits = value.replace(/\D/g, "");
+  
+  // Limit to 10 digits for US numbers
+  const limited = digits.slice(0, 10);
+  
+  if (limited.length === 0) return "";
+  if (limited.length <= 3) return `(${limited}`;
+  if (limited.length <= 6) return `(${limited.slice(0, 3)}) ${limited.slice(3)}`;
+  return `(${limited.slice(0, 3)}) ${limited.slice(3, 6)}-${limited.slice(6)}`;
+}
+
+// Get raw digits from formatted phone
+function getPhoneDigits(formatted: string): string {
+  return formatted.replace(/\D/g, "");
+}
 
 type TreeApiNode = {
   id: string;
@@ -167,7 +185,6 @@ export default function PedigreePage() {
   const [inviteMethod, setInviteMethod] = useState<"email" | "phone">("email");
   const [inviteBusy, setInviteBusy] = useState(false);
   const [vouchBusy, setVouchBusy] = useState(false);
-  const [generatedInviteUrl, setGeneratedInviteUrl] = useState<string | null>(null);
 
   const [editFirstName, setEditFirstName] = useState("");
   const [editLastName, setEditLastName] = useState("");
@@ -587,7 +604,8 @@ setEditFirstName(detail.person.firstName ?? "");
   }
 
 async function sendInvite() {
-    const contact = inviteMethod === "email" ? inviteEmail.trim() : invitePhone.trim();
+    const phoneDigits = getPhoneDigits(invitePhone);
+    const contact = inviteMethod === "email" ? inviteEmail.trim() : phoneDigits;
     if (!selectedId || !contact) return;
     
     setInviteBusy(true);
@@ -600,7 +618,8 @@ async function sendInvite() {
       if (inviteMethod === "email") {
         payload.email = inviteEmail.trim();
       } else {
-        payload.phone = invitePhone.trim();
+        // Send as +1XXXXXXXXXX format for US numbers
+        payload.phone = `+1${phoneDigits}`;
       }
 
       const res = await fetch("/api/invitations", {
@@ -618,41 +637,30 @@ async function sendInvite() {
       
       setInviteEmail("");
       setInvitePhone("");
-      setGeneratedInviteUrl(data.inviteUrl);
-      await loadTree(selectedId);
-    } finally {
-      setInviteBusy(false);
-    }
-  }
-
-  // Generate invite link without email/phone (for mobile share)
-  async function generateInviteLink() {
-    if (!selectedId) return;
-    
-    setInviteBusy(true);
-    setError(null);
-    
-    try {
-      // Use a placeholder for the API - we just need the link
-      const payload = {
-        targetPersonId: selectedId,
-        phone: "+0000000000", // Placeholder - link will work regardless
-      };
-
-      const res = await fetch("/api/invitations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
       
-      const data = await res.json().catch(() => ({}));
-      
-      if (!res.ok) {
-        setError(data?.error ?? `INVITE_FAILED_${res.status}`);
-        return;
+      // Show the invite link to the user
+      if (data.inviteUrl) {
+        // Use Web Share API on mobile, fallback to copy to clipboard
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: t.invitePerson,
+              text: t.inviteMessage.replace("{name}", personDetail?.person.fullName ?? ""),
+              url: data.inviteUrl,
+            });
+          } catch {
+            // User cancelled or share failed, copy to clipboard instead
+            await navigator.clipboard.writeText(data.inviteUrl);
+            alert(t.linkCopied + "\n\n" + data.inviteUrl);
+          }
+        } else {
+          // Desktop fallback: copy to clipboard
+          await navigator.clipboard.writeText(data.inviteUrl);
+          alert(t.linkCopied + "\n\n" + data.inviteUrl);
+        }
       }
       
-      setGeneratedInviteUrl(data.inviteUrl);
+      await loadTree(selectedId);
     } finally {
       setInviteBusy(false);
     }
@@ -1479,100 +1487,8 @@ const relTitle =
                       {t.inviteToClaim}
                     </div>
 
-                    {/* Show MobileShareButton if we have a generated URL */}
-                    {generatedInviteUrl ? (
-                      <div style={{ marginTop: 12 }}>
-                        <MobileShareButton
-                          inviteUrl={generatedInviteUrl}
-                          personName={personDetail?.person.fullName ?? "this person"}
-                          onClose={() => setGeneratedInviteUrl(null)}
-                          translations={{
-                            shareViaApps: t.shareViaApps,
-                            copyLink: t.copyLink,
-                            linkCopied: t.linkCopied,
-                            shareNotSupported: t.shareNotSupported,
-                            inviteMessage: t.inviteMessage,
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setGeneratedInviteUrl(null)}
-                          style={{
-                            width: "100%",
-                            marginTop: 10,
-                            padding: "10px 16px",
-                            borderRadius: 8,
-                            border: "1px solid #d1d5db",
-                            background: "#ffffff",
-                            color: "#6b7280",
-                            fontSize: 13,
-                            fontWeight: 500,
-                            cursor: "pointer",
-                          }}
-                        >
-                          {t.cancel}
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        {/* Primary: Generate shareable link button */}
-                        <button
-                          type="button"
-                          onClick={() => void generateInviteLink()}
-                          disabled={inviteBusy}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: 10,
-                            width: "100%",
-                            marginTop: 12,
-                            padding: "14px 20px",
-                            borderRadius: 12,
-                            border: "none",
-                            background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
-                            color: "#ffffff",
-                            fontSize: 15,
-                            fontWeight: 600,
-                            cursor: inviteBusy ? "not-allowed" : "pointer",
-                            opacity: inviteBusy ? 0.7 : 1,
-                            boxShadow: "0 4px 14px rgba(59, 130, 246, 0.4)",
-                          }}
-                        >
-                          <svg
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <circle cx="18" cy="5" r="3" />
-                            <circle cx="6" cy="12" r="3" />
-                            <circle cx="18" cy="19" r="3" />
-                            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-                            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-                          </svg>
-                          {inviteBusy ? t.sendingInvite : t.shareInvite}
-                        </button>
-
-                        {/* Divider */}
-                        <div style={{ 
-                          display: "flex", 
-                          alignItems: "center", 
-                          gap: 12, 
-                          marginTop: 16,
-                          marginBottom: 12,
-                        }}>
-                          <div style={{ flex: 1, height: 1, background: "#e5e7eb" }} />
-                          <span style={{ fontSize: 12, color: "#9ca3af", fontWeight: 500 }}>{t.orEnterContact}</span>
-                          <div style={{ flex: 1, height: 1, background: "#e5e7eb" }} />
-                        </div>
-
-                        {/* Email/Phone toggle */}
-                        <div style={{ display: "flex", gap: 8 }}>
+                    {/* Email/Phone toggle */}
+                    <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                           <button
                             type="button"
                             onClick={() => setInviteMethod("email")}
@@ -1626,28 +1542,28 @@ const relTitle =
                           ) : (
                             <input
                               value={invitePhone}
-                              onChange={(e) => setInvitePhone(e.target.value)}
-                              placeholder={t.phonePlaceholder}
+                              onChange={(e) => setInvitePhone(formatPhoneNumber(e.target.value))}
+                              placeholder="(555) 123-4567"
                               type="tel"
                               style={{
                                 width: "100%",
                                 borderRadius: 12,
                                 border: "1px solid #d1d5db",
                                 padding: "10px 12px",
+                                fontFamily: "system-ui, -apple-system, sans-serif",
+                                letterSpacing: "0.5px",
                               }}
                             />
                           )}
                           <button
                             type="button"
                             onClick={() => void sendInvite()}
-                            disabled={(inviteMethod === "email" ? !inviteEmail.trim() : !invitePhone.trim()) || inviteBusy}
+                            disabled={(inviteMethod === "email" ? !inviteEmail.trim() : getPhoneDigits(invitePhone).length < 10) || inviteBusy}
                             style={actionButtonStyle(false)}
                           >
                             {inviteBusy ? t.sendingInvite : t.createInviteLink}
                           </button>
                         </div>
-                      </>
-                    )}
                   </div>
                 ) : null}
               </>
