@@ -166,6 +166,13 @@ export const translations = {
     youAreInvited: "You've been invited to join a family tree",
     invitedBy: "Invited by",
     claimProfile: "Claim This Profile",
+    shareViaApps: "Share via Messages",
+    copyLink: "Copy Invite Link",
+    linkCopied: "Link Copied!",
+    shareNotSupported: "Sharing is not supported on this device",
+    inviteMessage: "You're invited to join our family tree and claim your profile as {name}. Click the link to get started!",
+    shareInvite: "Share Invite",
+    orEnterContact: "Or enter contact info:",
 
     // Privacy
     public: "Public",
@@ -350,6 +357,13 @@ export const translations = {
     youAreInvited: "Bạn được mời tham gia cây gia đình",
     invitedBy: "Được mời bởi",
     claimProfile: "Nhận hồ sơ này",
+    shareViaApps: "Chia sẻ qua Tin nhắn",
+    copyLink: "Sao chép liên kết",
+    linkCopied: "Đã sao chép!",
+    shareNotSupported: "Thiết bị không hỗ trợ chia sẻ",
+    inviteMessage: "Bạn được mời tham gia cây gia đình và nhận hồ sơ {name}. Nhấn vào liên kết để bắt đầu!",
+    shareInvite: "Chia sẻ lời mời",
+    orEnterContact: "Hoặc nhập thông tin liên hệ:",
 
     // Privacy
     public: "Công khai",
