@@ -187,7 +187,6 @@ export default function PedigreePage() {
   const [inviteBusy, setInviteBusy] = useState(false);
   const [vouchBusy, setVouchBusy] = useState(false);
   const [showInviteConfirm, setShowInviteConfirm] = useState(false);
-  const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
 
   const [editFirstName, setEditFirstName] = useState("");
   const [editLastName, setEditLastName] = useState("");
@@ -651,10 +650,26 @@ setEditFirstName(detail.person.firstName ?? "");
         return;
       }
       
-      // Store invite URL and clear inputs
-      setLastInviteUrl(data.inviteUrl);
+      const inviteUrl = data.inviteUrl;
+      const personName = personDetail?.person.fullName ?? "";
+      
+      // If phone number provided, open SMS app with pre-filled message
+      if (hasPhone && inviteUrl) {
+        const smsMessage = `You've been invited to join ${personName}'s family tree on Pedigree Roots! Click here to accept: ${inviteUrl}`;
+        const smsUrl = `sms:${invitePhone.replace(/\D/g, "")}?body=${encodeURIComponent(smsMessage)}`;
+        window.open(smsUrl, "_self");
+      }
+      
+      // Clear inputs
       setInviteEmail("");
       setInvitePhone("");
+      
+      // Only show success popup if email was sent (no phone)
+      // If phone was provided, SMS app handles it
+      if (hasEmail && !hasPhone) {
+        // Email sent - no need to show link popup
+        // The email contains the link
+      }
       
       await loadTree(selectedId);
     } finally {
@@ -1851,107 +1866,7 @@ const relTitle =
         </div>
       )}
 
-      {/* Invite Success Modal with Share Link */}
-      {lastInviteUrl && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-            padding: 20,
-          }}
-          onClick={() => setLastInviteUrl(null)}
-        >
-          <div
-            style={{
-              background: "#ffffff",
-              borderRadius: 16,
-              padding: 24,
-              maxWidth: 400,
-              width: "100%",
-              boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#111827" }}>
-              {t.inviteSent}
-            </h3>
-            <p style={{ marginTop: 12, fontSize: 14, color: "#6b7280", lineHeight: 1.5 }}>
-              {t.copyLink}:
-            </p>
-            <div
-              style={{
-                marginTop: 12,
-                padding: 12,
-                background: "#f3f4f6",
-                borderRadius: 8,
-                fontSize: 12,
-                wordBreak: "break-all",
-                color: "#374151",
-                fontFamily: "monospace",
-              }}
-            >
-              {lastInviteUrl}
-            </div>
-            <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
-              <button
-                type="button"
-                onClick={async () => {
-                  await navigator.clipboard.writeText(lastInviteUrl);
-                  setLastInviteUrl(null);
-                }}
-                style={{
-                  flex: 1,
-                  padding: "10px 20px",
-                  borderRadius: 8,
-                  border: "none",
-                  background: "#111827",
-                  color: "#ffffff",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                {t.copyLink}
-              </button>
-              {typeof navigator !== "undefined" && navigator.share && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      await navigator.share({
-                        title: t.invitePerson,
-                        text: t.inviteMessage.replace("{name}", personDetail?.person.fullName ?? ""),
-                        url: lastInviteUrl,
-                      });
-                    } catch {
-                      // User cancelled
-                    }
-                    setLastInviteUrl(null);
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: "10px 20px",
-                    borderRadius: 8,
-                    border: "none",
-                    background: "#3b82f6",
-                    color: "#ffffff",
-                    fontSize: 14,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  {t.shareViaApps}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      
     </main>
   );
 }
