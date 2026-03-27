@@ -1,10 +1,15 @@
 import type { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { findUserByEmail } from "@/lib/neon-db";
+import GoogleProvider from "next-auth/providers/google";
+import { findUserByEmail, sql } from "@/lib/neon-db";
 import argon2 from "argon2";
 
 export const authOptions: AuthOptions = {
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+    }),
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -19,6 +24,9 @@ export const authOptions: AuthOptions = {
         const user = await findUserByEmail(email);
         if (!user) return null;
 
+        // OAuth users won't have a password hash
+        if (!user.passwordHash) return null;
+
         const ok = await argon2.verify(user.passwordHash, password);
         if (!ok) return null;
 
@@ -26,6 +34,47 @@ export const authOptions: AuthOptions = {
       }
     })
   ],
+
+  callbacks: {
+    async signIn({ user, account }) {
+      // Handle OAuth sign-in (Google)
+      if (account?.provider === "google" && user.email) {
+        const email = user.email.toLowerCase();
+        const existingUser = await findUserByEmail(email);
+        
+        if (!existingUser) {
+          // Create user for OAuth
+          const userId = crypto.randomUUID();
+          await sql`
+            INSERT INTO "User" (id, email, "emailVerified", "createdAt", "updatedAt")
+            VALUES (${userId}, ${email}, NOW(), NOW(), NOW())
+          `;
+        }
+        return true;
+      }
+      return true;
+    },
+    async jwt({ token, user, account }) {
+      if (user) {
+        // Get the user ID from DB for OAuth users
+        if (account?.provider === "google" && user.email) {
+          const dbUser = await findUserByEmail(user.email.toLowerCase());
+          if (dbUser) {
+            token.sub = dbUser.id;
+          }
+        } else {
+          token.sub = user.id;
+        }
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user && token.sub) {
+        (session.user as { id?: string }).id = token.sub;
+      }
+      return session;
+    },
+  },
 
   session: { strategy: "jwt" as const },
 
