@@ -987,16 +987,9 @@ const relTitle =
               flexWrap: "wrap",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <img 
-                src="/images/pedigree-roots-logo.png" 
-                alt="Pedigree Roots" 
-                style={{ 
-                  height: 40, 
-                  width: "auto",
-                  objectFit: "contain"
-                }} 
-              />
+            <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.5 }}>
+              <span style={{ color: "#2d5a3d" }}>Pedigree</span>
+              <span style={{ color: "#4a7c59" }}>Roots</span>
             </div>
 
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>

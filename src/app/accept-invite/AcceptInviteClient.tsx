@@ -182,11 +182,10 @@ export default function AcceptInviteClient() {
       justifyContent: "center",
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <img 
-          src="/images/pedigree-roots-logo.png" 
-          alt="Pedigree Roots" 
-          style={{ height: 36, width: "auto", objectFit: "contain" }} 
-        />
+        <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.5 }}>
+          <span style={{ color: "#2d5a3d" }}>Pedigree</span>
+          <span style={{ color: "#4a7c59" }}>Roots</span>
+        </div>
         <LanguageToggle />
       </div>
 
