@@ -652,7 +652,7 @@ setEditFirstName(detail.person.firstName ?? "");
       
       // If phone number provided, open SMS app with pre-filled message
       if (hasPhone && inviteUrl) {
-        const smsMessage = `You've been invited to join ${personName}'s family tree on Pedigree Roots! Click here to accept: ${inviteUrl}`;
+        const smsMessage = `You've been invited to join ${personName}'s family tree on Pedigree Roots! When you sign up, use this phone number (not your email). Click here to accept: ${inviteUrl}`;
         const smsUrl = `sms:${invitePhone.replace(/\D/g, "")}?body=${encodeURIComponent(smsMessage)}`;
         window.open(smsUrl, "_self");
       }
