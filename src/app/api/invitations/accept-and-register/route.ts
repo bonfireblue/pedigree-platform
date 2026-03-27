@@ -157,9 +157,18 @@ export async function POST(req: Request) {
 
       // Update name if provided
       if (name) {
+        // Parse name into first and last
+        const nameParts = name.trim().split(/\s+/);
+        const lastName = nameParts.length > 1 ? nameParts.pop() : null;
+        const firstName = nameParts.length > 0 ? nameParts.join(" ") : null;
+        
         await tx.person.update({
           where: { id: freshInvite.targetPersonId },
-          data: { name },
+          data: { 
+            fullName: name,
+            firstName,
+            lastName,
+          },
         });
       }
 
