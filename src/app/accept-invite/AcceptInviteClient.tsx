@@ -17,10 +17,11 @@ export default function AcceptInviteClient() {
   const [msg, setMsg] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function accept() {
     setMsg("");
@@ -60,18 +61,19 @@ export default function AcceptInviteClient() {
     setLoading(false);
   }
 
-  async function createAccount() {
+  async function createAccount(e: React.FormEvent) {
+    e.preventDefault();
     setMsg("");
-    setPasswordError(null);
+    setError(null);
 
     // Validate password match
     if (password !== confirmPassword) {
-      setPasswordError(lang === "vi" ? "Mật khẩu không khớp" : "Passwords do not match");
+      setError(lang === "vi" ? "Mật khẩu không khớp." : "Passwords do not match.");
       return;
     }
 
     if (password.length < 8) {
-      setPasswordError(lang === "vi" ? "Mật khẩu phải có ít nhất 8 ký tự" : "Password must be at least 8 characters");
+      setError(lang === "vi" ? "Mật khẩu phải có ít nhất 8 ký tự." : "Password must be at least 8 characters.");
       return;
     }
 
@@ -80,14 +82,13 @@ export default function AcceptInviteClient() {
     const res = await fetch("/api/invitations/accept-and-register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, email, password }),
+      body: JSON.stringify({ token, email, password, name: name || undefined }),
     });
 
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
-      setStage("error");
-      setMsg(data?.error ?? (lang === "vi" ? `Thất bại với mã ${res.status}` : `Failed with ${res.status}`));
+      setError(data?.error ?? (lang === "vi" ? `Thất bại với mã ${res.status}` : `Failed with ${res.status}`));
       setLoading(false);
       return;
     }
@@ -101,45 +102,68 @@ export default function AcceptInviteClient() {
     }, 700);
   }
 
+  // Input style matching sign-up page
   const inputStyle = {
-    padding: 10,
-    border: "1px solid #ddd",
+    padding: 12,
+    border: "1px solid #444",
     borderRadius: 10,
     width: "100%",
-    fontSize: 14,
+    fontSize: 15,
+    background: "transparent",
+    color: "inherit",
+  };
+
+  const labelStyle = {
+    display: "grid" as const,
+    gap: 8,
+  };
+
+  const labelTextStyle = {
+    fontSize: 15,
+    fontWeight: 500 as const,
   };
 
   const buttonStyle = {
-    padding: 12,
-    borderRadius: 12,
-    border: "1px solid #111",
-    background: "#111",
-    color: "white",
-    fontWeight: 600,
-    cursor: "pointer",
+    padding: 14,
+    borderRadius: 10,
+    border: "none",
+    background: "white",
+    color: "#111",
+    fontWeight: 600 as const,
+    cursor: "pointer" as const,
     width: "100%",
-    fontSize: 14,
+    fontSize: 15,
+    marginTop: 8,
   };
 
   const secondaryButtonStyle = {
     ...buttonStyle,
-    background: "white",
-    color: "#111",
+    background: "transparent",
+    border: "1px solid #444",
+    color: "inherit",
   };
 
   return (
-    <>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+    <main style={{ 
+      maxWidth: 480, 
+      margin: "0 auto", 
+      padding: "40px 24px",
+      minHeight: "100vh",
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "center",
+    }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 24 }}>
         <LanguageToggle />
       </div>
 
       {stage === "start" && (
         <>
-          <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>
+          <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 12 }}>
             {lang === "vi" ? "Lời Mời Gia Đình" : "Family Invitation"}
           </h1>
 
-          <p style={{ opacity: 0.8, marginBottom: 24 }}>
+          <p style={{ opacity: 0.7, marginBottom: 32, fontSize: 16, lineHeight: 1.5 }}>
             {t.youAreInvited}
           </p>
 
@@ -147,7 +171,11 @@ export default function AcceptInviteClient() {
             <button 
               onClick={accept} 
               disabled={loading}
-              style={buttonStyle}
+              style={{
+                ...buttonStyle,
+                opacity: loading ? 0.7 : 1,
+                cursor: loading ? "not-allowed" : "pointer",
+              }}
             >
               {loading 
                 ? (lang === "vi" ? "Đang xử lý..." : "Processing...") 
@@ -166,11 +194,11 @@ export default function AcceptInviteClient() {
           </div>
 
           {authStatus === "unauthenticated" && (
-            <p style={{ marginTop: 20, textAlign: "center", fontSize: 14, color: "#666" }}>
+            <p style={{ marginTop: 32, textAlign: "center", fontSize: 15 }}>
               {t.alreadyHaveAccount}{" "}
               <a
                 href={`/sign-in?callbackUrl=${encodeURIComponent(`/accept-invite?token=${token}`)}`}
-                style={{ color: "#111", fontWeight: 600, textDecoration: "underline" }}
+                style={{ fontWeight: 600, textDecoration: "underline" }}
               >
                 {t.signIn}
               </a>
@@ -181,63 +209,77 @@ export default function AcceptInviteClient() {
 
       {stage === "register" && (
         <>
-          <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>
+          <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 12 }}>
             {t.createAccount}
           </h1>
 
-          <p style={{ opacity: 0.8, marginBottom: 24 }}>
+          <p style={{ opacity: 0.7, marginBottom: 32, fontSize: 16, lineHeight: 1.5 }}>
             {lang === "vi" 
               ? "Tạo tài khoản để nhận hồ sơ của bạn trong cây gia đình."
               : "Create an account to claim your profile in the family tree."}
           </p>
 
-          {/* Email/Password Form */}
-          <form onSubmit={(e) => { e.preventDefault(); createAccount(); }} style={{ display: "grid", gap: 12 }}>
-            <label style={{ display: "grid", gap: 6 }}>
-              <span>{t.email}</span>
+          <form onSubmit={createAccount} style={{ display: "grid", gap: 20 }}>
+            <label style={labelStyle}>
+              <span style={labelTextStyle}>{t.name}</span>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={lang === "vi" ? "Nhập họ và tên của bạn" : "Enter your full name"}
+                autoComplete="name"
+                style={inputStyle}
+              />
+            </label>
+
+            <label style={labelStyle}>
+              <span style={labelTextStyle}>
+                {t.email} <span style={{ color: "#ef4444" }}>*</span>
+              </span>
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
+                autoComplete="email"
                 style={inputStyle}
               />
             </label>
 
-            <label style={{ display: "grid", gap: 6 }}>
-              <span>{t.password}</span>
+            <label style={labelStyle}>
+              <span style={labelTextStyle}>
+                {t.password} <span style={{ color: "#ef4444" }}>*</span>
+              </span>
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={lang === "vi" ? "8 ký tự trở lên" : "8+ characters"}
+                autoComplete="new-password"
                 style={inputStyle}
               />
             </label>
 
-            <label style={{ display: "grid", gap: 6 }}>
-              <span>{lang === "vi" ? "Xác nhận mật khẩu" : "Confirm Password"}</span>
+            <label style={labelStyle}>
+              <span style={labelTextStyle}>
+                {t.confirmPassword} <span style={{ color: "#ef4444" }}>*</span>
+              </span>
               <input
                 type="password"
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder={lang === "vi" ? "Nhập lại mật khẩu" : "Re-enter password"}
+                autoComplete="new-password"
                 style={inputStyle}
               />
             </label>
 
-            {passwordError && (
-              <div style={{ color: "crimson", fontSize: 14 }}>
-                {passwordError}
-              </div>
-            )}
-
-            {msg && (
-              <div style={{ color: "crimson", fontSize: 14 }}>
-                {msg}
+            {error && (
+              <div style={{ color: "#ef4444", fontSize: 14 }}>
+                {error}
               </div>
             )}
 
@@ -252,7 +294,7 @@ export default function AcceptInviteClient() {
             >
               {loading 
                 ? (lang === "vi" ? "Đang tạo..." : "Creating...") 
-                : (lang === "vi" ? "Tạo tài khoản" : "Create Account")
+                : t.createAccount
               }
             </button>
 
@@ -264,29 +306,36 @@ export default function AcceptInviteClient() {
               {t.back}
             </button>
           </form>
+
+          <p style={{ marginTop: 32, textAlign: "center", fontSize: 15 }}>
+            {t.alreadyHaveAccount}{" "}
+            <a href="/sign-in" style={{ fontWeight: 600, textDecoration: "underline" }}>
+              {t.signIn}
+            </a>
+          </p>
         </>
       )}
 
       {stage === "done" && (
         <div style={{ textAlign: "center" }}>
           <div style={{ 
-            width: 64, 
-            height: 64, 
+            width: 72, 
+            height: 72, 
             borderRadius: "50%", 
-            background: "#e8f5e9", 
+            background: "#22c55e20", 
             display: "flex", 
             alignItems: "center", 
             justifyContent: "center",
-            margin: "0 auto 16px",
+            margin: "0 auto 20px",
           }}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4caf50" strokeWidth="2">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5">
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>
+          <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 12 }}>
             {lang === "vi" ? "Hoàn tất!" : "Done!"}
           </h1>
-          <p style={{ opacity: 0.8 }}>
+          <p style={{ opacity: 0.7, fontSize: 16 }}>
             {msg || (lang === "vi" ? "Hoàn tất." : "Done.")}
           </p>
         </div>
@@ -295,38 +344,38 @@ export default function AcceptInviteClient() {
       {stage === "error" && (
         <div style={{ textAlign: "center" }}>
           <div style={{ 
-            width: 64, 
-            height: 64, 
+            width: 72, 
+            height: 72, 
             borderRadius: "50%", 
-            background: "#ffebee", 
+            background: "#ef444420", 
             display: "flex", 
             alignItems: "center", 
             justifyContent: "center",
-            margin: "0 auto 16px",
+            margin: "0 auto 20px",
           }}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#f44336" strokeWidth="2">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5">
               <circle cx="12" cy="12" r="10" />
               <line x1="15" y1="9" x2="9" y2="15" />
               <line x1="9" y1="9" x2="15" y2="15" />
             </svg>
           </div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#c62828" }}>
+          <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 12, color: "#ef4444" }}>
             {t.error}
           </h1>
-          <p style={{ marginBottom: 16 }}>{msg}</p>
-          <p style={{ opacity: 0.7, fontSize: 14, marginBottom: 20 }}>
+          <p style={{ marginBottom: 20, fontSize: 16 }}>{msg}</p>
+          <p style={{ opacity: 0.6, fontSize: 14, marginBottom: 24 }}>
             {lang === "vi" 
               ? "Nếu bạn đã tạo tài khoản, hãy đăng nhập rồi thử lại."
               : "If you already created an account, sign in and try again."}
           </p>
           <button 
             onClick={() => setStage("start")} 
-            style={secondaryButtonStyle}
+            style={buttonStyle}
           >
             {lang === "vi" ? "Thử lại" : "Try Again"}
           </button>
         </div>
       )}
-    </>
+    </main>
   );
 }
