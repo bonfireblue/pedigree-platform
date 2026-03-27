@@ -20,9 +20,20 @@ export default function AcceptInviteClient() {
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  // Format phone number as user types
+  function formatPhoneNumber(value: string): string {
+    const digits = value.replace(/\D/g, "").slice(0, 12);
+    if (digits.length === 0) return "";
+    if (digits.length <= 3) return `(${digits}`;
+    if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    if (digits.length <= 10) return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}-${digits.slice(10)}`;
+  }
 
   async function accept() {
     setMsg("");
@@ -67,6 +78,16 @@ export default function AcceptInviteClient() {
     setMsg("");
     setError(null);
 
+    const phoneDigits = phone.replace(/\D/g, "");
+    const hasEmail = email.trim().length > 0;
+    const hasPhone = phoneDigits.length >= 10;
+
+    // Must have at least email or phone
+    if (!hasEmail && !hasPhone) {
+      setError(lang === "vi" ? "Vui lòng nhập email hoặc số điện thoại." : "Please enter an email or phone number.");
+      return;
+    }
+
     // Validate password match
     if (password !== confirmPassword) {
       setError(lang === "vi" ? "Mật khẩu không khớp." : "Passwords do not match.");
@@ -83,7 +104,13 @@ export default function AcceptInviteClient() {
     const res = await fetch("/api/invitations/accept-and-register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, email, password, name: name || undefined }),
+      body: JSON.stringify({ 
+        token, 
+        email: hasEmail ? email.trim() : undefined, 
+        phone: hasPhone ? `+${phoneDigits}` : undefined,
+        password, 
+        name: name || undefined 
+      }),
     });
 
     const data = await res.json().catch(() => ({}));
@@ -235,11 +262,10 @@ export default function AcceptInviteClient() {
 
             <label style={labelStyle}>
               <span style={labelTextStyle}>
-                {t.email} <span style={{ color: "#ef4444" }}>*</span>
+                {t.email}
               </span>
               <input
                 type="email"
-                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
@@ -247,6 +273,34 @@ export default function AcceptInviteClient() {
                 style={inputStyle}
               />
             </label>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ flex: 1, height: 1, background: "#444" }} />
+              <span style={{ fontSize: 13, opacity: 0.6 }}>
+                {lang === "vi" ? "hoặc" : "or"}
+              </span>
+              <div style={{ flex: 1, height: 1, background: "#444" }} />
+            </div>
+
+            <label style={labelStyle}>
+              <span style={labelTextStyle}>
+                {t.phone} <span style={{ fontWeight: 400, opacity: 0.6 }}>(with country code)</span>
+              </span>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
+                placeholder="(1) 555-123-4567"
+                autoComplete="tel"
+                style={inputStyle}
+              />
+            </label>
+
+            <p style={{ fontSize: 13, opacity: 0.6, marginTop: -8 }}>
+              {lang === "vi" 
+                ? "Nhập email hoặc số điện thoại (ít nhất 1 trong 2)"
+                : "Enter email or phone number (at least one required)"}
+            </p>
 
             <label style={labelStyle}>
               <span style={labelTextStyle}>

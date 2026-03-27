@@ -9,7 +9,7 @@ export default function SignInPage() {
   const router = useRouter();
   const { t, lang } = useLanguage();
 
-  const [email, setEmail] = useState("");
+  const [emailOrPhone, setEmailOrPhone] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -21,7 +21,7 @@ export default function SignInPage() {
 
     const result = await signIn("credentials", {
       redirect: false,
-      email,
+      email: emailOrPhone, // The backend handles both email and phone
       password
     });
 
@@ -61,13 +61,14 @@ export default function SignInPage() {
 
       <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
         <label style={{ display: "grid", gap: 6 }}>
-          <span>{t.email}</span>
+          <span>{lang === "vi" ? "Email hoặc Số điện thoại" : "Email or Phone"}</span>
           <input
-            type="email"
+            type="text"
             required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email tel"
+            value={emailOrPhone}
+            onChange={(e) => setEmailOrPhone(e.target.value)}
+            placeholder={lang === "vi" ? "email@example.com hoặc (555) 123-4567" : "email@example.com or (555) 123-4567"}
             style={{
               padding: 10,
               border: "1px solid #ddd",

@@ -1,8 +1,14 @@
 import type { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
-import { findUserByEmail, sql } from "@/lib/neon-db";
+import { findUserByEmail, findUserByPhone, sql } from "@/lib/neon-db";
 import argon2 from "argon2";
+
+// Check if input looks like a phone number (digits only, 10-15 chars)
+function isPhoneNumber(input: string): boolean {
+  const digits = input.replace(/\D/g, "");
+  return digits.length >= 10 && digits.length <= 15;
+}
 
 export const authOptions: AuthOptions = {
   providers: [
@@ -13,15 +19,27 @@ export const authOptions: AuthOptions = {
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "text" },
+        email: { label: "Email or Phone", type: "text" },
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        const email = credentials?.email?.trim().toLowerCase();
+        const input = credentials?.email?.trim() ?? "";
         const password = credentials?.password ?? "";
-        if (!email || !password) return null;
+        if (!input || !password) return null;
 
-        const user = await findUserByEmail(email);
+        let user;
+        
+        // Check if input is a phone number or email
+        if (isPhoneNumber(input)) {
+          // Normalize phone number to just digits with + prefix
+          const phoneDigits = input.replace(/\D/g, "");
+          user = await findUserByPhone(`+${phoneDigits}`);
+        } else {
+          // Treat as email
+          const email = input.toLowerCase();
+          user = await findUserByEmail(email);
+        }
+        
         if (!user) return null;
 
         // OAuth users won't have a password hash
@@ -30,7 +48,7 @@ export const authOptions: AuthOptions = {
         const ok = await argon2.verify(user.passwordHash, password);
         if (!ok) return null;
 
-        return { id: user.id, email: user.email };
+        return { id: user.id, email: user.email ?? user.phone };
       }
     })
   ],

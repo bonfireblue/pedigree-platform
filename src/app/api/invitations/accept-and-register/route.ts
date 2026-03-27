@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 import argon2 from "argon2";
 import { prisma } from "@/lib/db";
+import { sql } from "@/lib/neon-db";
 import { readJson } from "@/lib/body";
 import {
   InvitationError,
   assertNonEmptyToken,
   assertValidEmail,
+  assertValidPhone,
   getPendingInvitationOrThrow,
   normalizeEmail,
+  normalizePhone,
 } from "@/lib/invitationRules";
 
 export async function POST(req: Request) {
@@ -18,8 +21,36 @@ export async function POST(req: Request) {
     }
 
     const token = assertNonEmptyToken(parsed.json?.token);
-    const email = assertValidEmail(parsed.json?.email);
+    const rawEmail = parsed.json?.email;
+    const rawPhone = parsed.json?.phone;
     const password = parsed.json?.password;
+    const name = parsed.json?.name;
+
+    // Must have at least email or phone
+    if (!rawEmail && !rawPhone) {
+      return NextResponse.json({ error: "EMAIL_OR_PHONE_REQUIRED" }, { status: 400 });
+    }
+
+    // Validate and normalize email if provided
+    let email: string | null = null;
+    if (rawEmail) {
+      try {
+        email = assertValidEmail(rawEmail);
+      } catch {
+        return NextResponse.json({ error: "INVALID_EMAIL" }, { status: 400 });
+      }
+    }
+
+    // Validate and normalize phone if provided
+    let phone: string | null = null;
+    if (rawPhone) {
+      try {
+        phone = assertValidPhone(rawPhone);
+        phone = normalizePhone(phone);
+      } catch {
+        return NextResponse.json({ error: "INVALID_PHONE" }, { status: 400 });
+      }
+    }
 
     if (!password || typeof password !== "string" || password.length < 8) {
       return NextResponse.json({ error: "WEAK_PASSWORD" }, { status: 400 });
@@ -27,21 +58,34 @@ export async function POST(req: Request) {
 
     const invitation = await getPendingInvitationOrThrow(token);
 
-    if (!invitation.email || normalizeEmail(invitation.email) !== email) {
-      return NextResponse.json({ error: "EMAIL_MISMATCH" }, { status: 400 });
+    // Check for existing user with same email or phone
+    if (email) {
+      const existingByEmail = await prisma.user.findFirst({
+        where: { email },
+        select: { id: true },
+      });
+      if (existingByEmail) {
+        return NextResponse.json({ error: "USER_ALREADY_EXISTS" }, { status: 400 });
+      }
     }
 
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-      select: { id: true },
-    });
-
-    if (existingUser) {
-      return NextResponse.json({ error: "USER_ALREADY_EXISTS" }, { status: 400 });
+    if (phone) {
+      const existingByPhone = await sql`SELECT id FROM "User" WHERE phone = ${phone} LIMIT 1`;
+      if (existingByPhone.length > 0) {
+        return NextResponse.json({ error: "PHONE_ALREADY_EXISTS" }, { status: 400 });
+      }
     }
 
     const passwordHash = await argon2.hash(password);
 
+    // Use raw SQL to create user with phone field (bypasses Prisma cached schema)
+    const userId = crypto.randomUUID();
+    await sql`
+      INSERT INTO "User" (id, email, phone, "passwordHash", role, "createdAt")
+      VALUES (${userId}, ${email}, ${phone}, ${passwordHash}, 'USER', NOW())
+    `;
+
+    // Now use Prisma for the rest of the transaction
     const result = await prisma.$transaction(async (tx) => {
       const freshInvite = await tx.invitation.findUnique({
         where: { token },
@@ -71,38 +115,16 @@ export async function POST(req: Request) {
         throw new InvitationError("INVITE_EXPIRED", 400);
       }
 
-      if (!freshInvite.email || normalizeEmail(freshInvite.email) !== email) {
-        throw new InvitationError("EMAIL_MISMATCH", 400);
-      }
-
-      const duplicateUser = await tx.user.findUnique({
-        where: { email },
-        select: { id: true },
-      });
-
-      if (duplicateUser) {
-        throw new InvitationError("USER_ALREADY_EXISTS", 400);
-      }
-
-      const user = await tx.user.create({
-        data: {
-          email,
-          passwordHash,
-          role: "USER",
-        },
-        select: { id: true, email: true },
-      });
-
       await tx.membership.upsert({
         where: {
           userId_familyGraphId: {
-            userId: user.id,
+            userId: userId,
             familyGraphId: freshInvite.familyGraphId,
           },
         },
         update: {},
         create: {
-          userId: user.id,
+          userId: userId,
           familyGraphId: freshInvite.familyGraphId,
           role: "MEMBER",
           invitedByUserId: freshInvite.inviterUserId,
@@ -115,7 +137,7 @@ export async function POST(req: Request) {
           claimedByUserId: null,
         },
         data: {
-          claimedByUserId: user.id,
+          claimedByUserId: userId,
         },
       });
 
@@ -133,6 +155,14 @@ export async function POST(req: Request) {
         throw new InvitationError("PERSON_ALREADY_CLAIMED", 400);
       }
 
+      // Update name if provided
+      if (name) {
+        await tx.person.update({
+          where: { id: freshInvite.targetPersonId },
+          data: { name },
+        });
+      }
+
       const acceptResult = await tx.invitation.updateMany({
         where: {
           id: freshInvite.id,
@@ -140,7 +170,7 @@ export async function POST(req: Request) {
         },
         data: {
           status: "ACCEPTED",
-          acceptedByUserId: user.id,
+          acceptedByUserId: userId,
           acceptedAt: new Date(),
         },
       });
@@ -160,12 +190,13 @@ export async function POST(req: Request) {
         },
       });
 
-      return { userEmail: user.email, claimedPersonId: freshInvite.targetPersonId };
+      return { claimedPersonId: freshInvite.targetPersonId };
     });
 
     return NextResponse.json({
       ok: true,
-      userEmail: result.userEmail,
+      userEmail: email,
+      userPhone: phone,
       claimedPersonId: result.claimedPersonId,
     });
   } catch (error) {

@@ -15,13 +15,18 @@ export async function findUserById(id: string) {
   return result[0] || null;
 }
 
-export async function createUser(email: string, passwordHash: string, role: string = "USER") {
+export async function findUserByPhone(phone: string) {
+  const result = await sql`SELECT * FROM "User" WHERE phone = ${phone} LIMIT 1`;
+  return result[0] || null;
+}
+
+export async function createUser(email: string | null, passwordHash: string, role: string = "USER", phone: string | null = null) {
   const id = crypto.randomUUID();
   await sql`
-    INSERT INTO "User" (id, email, "passwordHash", role, "createdAt")
-    VALUES (${id}, ${email}, ${passwordHash}, ${role}::"UserRole", NOW())
+    INSERT INTO "User" (id, email, phone, "passwordHash", role, "createdAt")
+    VALUES (${id}, ${email}, ${phone}, ${passwordHash}, ${role}::"UserRole", NOW())
   `;
-  return { id, email, role };
+  return { id, email, phone, role };
 }
 
 // Password reset token operations
