@@ -247,9 +247,6 @@ setEditFirstName(detail.person.firstName ?? "");
       setEditStory(detail.person.story ?? "");
       setEditInterests(detail.person.interests ?? "");
       setEditPhotoUrl(detail.person.photoUrl ?? "");
-      
-      // Open sidebar on mobile when selecting a person
-      setSidebarOpen(true);
     } finally {
       setLoadingDetail(false);
     }
@@ -857,6 +854,34 @@ const relTitle =
         color: "#0f172a",
       }}
     >
+      {/* Recenter button - fixed bottom left */}
+      {selectedId && (
+        <button
+          type="button"
+          onClick={() => {
+            if (!selectedId) return;
+            void loadTree(selectedId);
+          }}
+          style={{
+            position: "fixed",
+            bottom: 20,
+            left: 20,
+            zIndex: 50,
+            padding: "12px 20px",
+            borderRadius: 12,
+            background: "#111827",
+            color: "#ffffff",
+            border: "none",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            cursor: "pointer",
+            fontSize: 14,
+            fontWeight: 600,
+          }}
+        >
+          Recenter
+        </button>
+      )}
+
       {/* Mobile sidebar toggle */}
       <button
         type="button"
@@ -1034,20 +1059,7 @@ const relTitle =
                 ) : null}
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  if (!selectedId) return;
-                  void loadTree(selectedId);
-                }}
-                disabled={!selectedId}
-                style={actionButtonStyle(false)}
-              >
-                Recenter
-              </button>
-
-              
-            </div>
+              </div>
           </div>
 
           <div

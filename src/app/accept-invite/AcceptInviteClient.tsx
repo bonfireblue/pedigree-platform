@@ -249,7 +249,7 @@ export default function AcceptInviteClient() {
 
           <form onSubmit={createAccount} style={{ display: "grid", gap: 20 }}>
             <label style={labelStyle}>
-              <span style={labelTextStyle}>{t.name}</span>
+              <span style={labelTextStyle}>{lang === "vi" ? "Họ và tên" : "Full Name"}</span>
               <input
                 type="text"
                 value={name}
