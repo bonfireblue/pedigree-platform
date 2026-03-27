@@ -1,4 +1,5 @@
 "use client";
+// AcceptInviteClient - Updated March 27 2026 with confirm password field
 
 import { useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
