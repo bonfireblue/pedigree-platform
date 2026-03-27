@@ -987,11 +987,16 @@ const relTitle =
               flexWrap: "wrap",
             }}
           >
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.5, color: "#64748b" }}>
-                PEDIGREE WORKSPACE
-              </div>
-              <div style={{ fontSize: 24, fontWeight: 900, marginTop: 2 }}>Family Graph</div>
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <img 
+                src="/images/pedigree-roots-logo.png" 
+                alt="Pedigree Roots" 
+                style={{ 
+                  height: 40, 
+                  width: "auto",
+                  objectFit: "contain"
+                }} 
+              />
             </div>
 
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>

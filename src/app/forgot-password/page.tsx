@@ -39,7 +39,12 @@ export default function ForgotPasswordPage() {
   if (success) {
     return (
       <main style={{ maxWidth: 420, margin: "0 auto", padding: "40px 20px", minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+          <img 
+            src="/images/pedigree-roots-logo.png" 
+            alt="Pedigree Roots" 
+            style={{ height: 36, width: "auto", objectFit: "contain" }} 
+          />
           <LanguageToggle />
         </div>
         <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>
@@ -59,7 +64,12 @@ export default function ForgotPasswordPage() {
 
   return (
     <main style={{ maxWidth: 420, margin: "0 auto", padding: "40px 20px", minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <img 
+          src="/images/pedigree-roots-logo.png" 
+          alt="Pedigree Roots" 
+          style={{ height: 36, width: "auto", objectFit: "contain" }} 
+        />
         <LanguageToggle />
       </div>
       <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>

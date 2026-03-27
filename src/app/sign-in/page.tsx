@@ -47,7 +47,12 @@ export default function SignInPage() {
         justifyContent: "center",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <img 
+          src="/images/pedigree-roots-logo.png" 
+          alt="Pedigree Roots" 
+          style={{ height: 36, width: "auto", objectFit: "contain" }} 
+        />
         <LanguageToggle />
       </div>
 

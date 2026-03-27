@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Pedigree Platform",
+  title: "Pedigree Roots",
   description: "Build and manage your family tree",
 };
 
