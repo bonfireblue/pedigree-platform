@@ -8,15 +8,32 @@ const sql = neon(process.env.DATABASE_URL!);
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const userId = session.user.id;
     const body = await request.json();
     const { personId, firstName, lastName, fullName, gender, birthDate, deathDate, grewUpLocation, occupation, proudOf, story, interests, photoUrl } = body;
 
     if (!personId) {
       return NextResponse.json({ error: "Missing personId" }, { status: 400 });
+    }
+
+    // Check if the person is claimed - if so, only the owner can edit
+    const personCheck = await sql`
+      SELECT "claimedByUserId", "createdById" FROM "Person" WHERE id = ${personId} LIMIT 1
+    `;
+
+    if (personCheck.length === 0) {
+      return NextResponse.json({ error: "Person not found" }, { status: 404 });
+    }
+
+    const person = personCheck[0];
+    
+    // If claimed, only the claimer can edit their own profile
+    if (person.claimedByUserId && person.claimedByUserId !== userId) {
+      return NextResponse.json({ error: "Only the profile owner can edit this profile" }, { status: 403 });
     }
 
     // Direct SQL update with COALESCE to preserve existing values when null is passed

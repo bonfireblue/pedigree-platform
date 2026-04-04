@@ -132,42 +132,38 @@ export default function AcceptInviteClient() {
 
   // Input style matching sign-up page
   const inputStyle = {
-    padding: 12,
-    border: "1px solid #444",
+    padding: 10,
+    border: "1px solid #ddd",
     borderRadius: 10,
     width: "100%",
     fontSize: 15,
-    background: "transparent",
-    color: "inherit",
   };
 
   const labelStyle = {
     display: "grid" as const,
-    gap: 8,
+    gap: 6,
   };
 
   const labelTextStyle = {
     fontSize: 15,
-    fontWeight: 500 as const,
   };
 
   const buttonStyle = {
-    padding: 14,
-    borderRadius: 10,
-    border: "none",
-    background: "white",
-    color: "#111",
+    padding: 12,
+    borderRadius: 12,
+    border: "1px solid #111",
+    background: "#111",
+    color: "white",
     fontWeight: 600 as const,
     cursor: "pointer" as const,
     width: "100%",
     fontSize: 15,
-    marginTop: 8,
   };
 
   const secondaryButtonStyle = {
     ...buttonStyle,
     background: "transparent",
-    border: "1px solid #444",
+    border: "1px solid #ddd",
     color: "inherit",
   };
 
@@ -279,11 +275,11 @@ export default function AcceptInviteClient() {
             </label>
 
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ flex: 1, height: 1, background: "#444" }} />
+              <div style={{ flex: 1, height: 1, background: "#ddd" }} />
               <span style={{ fontSize: 13, opacity: 0.6 }}>
                 {lang === "vi" ? "hoặc" : "or"}
               </span>
-              <div style={{ flex: 1, height: 1, background: "#444" }} />
+              <div style={{ flex: 1, height: 1, background: "#ddd" }} />
             </div>
 
             <label style={labelStyle}>

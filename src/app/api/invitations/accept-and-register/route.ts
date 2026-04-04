@@ -96,6 +96,11 @@ export async function POST(req: Request) {
               claimedByUserId: true,
             },
           },
+          familyGraph: {
+            select: {
+              createdById: true,
+            },
+          },
         },
       });
 
@@ -131,6 +136,23 @@ export async function POST(req: Request) {
         },
       });
 
+      // Check if this invitee should be auto-verified
+      // Auto-verify if: invited by the graph creator AND fewer than 10 verified people exist
+      const isInvitedByCreator = freshInvite.inviterUserId === freshInvite.familyGraph.createdById;
+      let shouldAutoVerify = false;
+      
+      if (isInvitedByCreator) {
+        // Count how many people in this graph are already verified (excluding creator's own node)
+        const verifiedCount = await tx.person.count({
+          where: {
+            familyGraphId: freshInvite.familyGraphId,
+            isVerified: true,
+            claimedByUserId: { not: freshInvite.familyGraph.createdById },
+          },
+        });
+        shouldAutoVerify = verifiedCount < 10;
+      }
+
       const claimResult = await tx.person.updateMany({
         where: {
           id: freshInvite.targetPersonId,
@@ -138,6 +160,7 @@ export async function POST(req: Request) {
         },
         data: {
           claimedByUserId: userId,
+          isVerified: shouldAutoVerify,
         },
       });
 

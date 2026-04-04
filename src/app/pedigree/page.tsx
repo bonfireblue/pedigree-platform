@@ -206,6 +206,7 @@ export default function PedigreePage() {
   const [editBusy, setEditBusy] = useState(false);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -291,12 +292,15 @@ setEditFirstName(detail.person.firstName ?? "");
       } else {
         // Otherwise, fetch user's claimed person and center on them
         try {
-          const res = await fetch("/api/me");
-          if (res.ok) {
-            const data = await res.json();
-            if (data.claimedPersonId) {
-              await loadTree(data.claimedPersonId);
-            }
+const res = await fetch("/api/me");
+  if (res.ok) {
+  const data = await res.json();
+  if (data.user?.id) {
+    setCurrentUserId(data.user.id);
+  }
+  if (data.claimedPersonId) {
+  await loadTree(data.claimedPersonId);
+  }
           }
         } catch {
           // Silently fail
@@ -840,6 +844,8 @@ setEditFirstName(detail.person.firstName ?? "");
 
   const selectedName = personDetail?.person.fullName ?? (lang === "vi" ? "Chưa chọn người nào" : "No person selected");
   const selectedClaimed = Boolean(personDetail?.person.claimedByUserId);
+  // Can edit profile if: not claimed OR claimed by current user
+  const canEditProfile = !selectedClaimed || personDetail?.person.claimedByUserId === currentUserId;
 const relTitle =
   relMode === "PARENT" ? t.addParent : relMode === "CHILD" ? t.addChild : relMode === "SPOUSE" ? t.addSpouse : t.addSibling;
 
@@ -1220,7 +1226,7 @@ const relTitle =
                           type="file"
                           accept="image/jpeg,image/png,image/gif,image/webp"
                           onChange={handlePhotoUpload}
-                          disabled={uploadingPhoto}
+                          disabled={uploadingPhoto || !canEditProfile}
                           style={{ display: "none" }}
                         />
                       </label>
@@ -1238,8 +1244,9 @@ const relTitle =
                       </label>
                       <input
                         value={editFirstName}
-                        onChange={(e) => setEditFirstName(e.target.value)}
+                        onChange={(e) => canEditProfile && setEditFirstName(e.target.value)}
                         placeholder={t.firstNamePlaceholder}
+                        readOnly={!canEditProfile}
                         style={{
                           width: "100%",
                           maxWidth: "100%",
@@ -1247,6 +1254,7 @@ const relTitle =
                           borderRadius: 12,
                           border: "1px solid #d1d5db",
                           padding: "10px 12px",
+                          background: canEditProfile ? "white" : "#f8fafc",
                         }}
                       />
                     </div>
@@ -1256,8 +1264,9 @@ const relTitle =
                       </label>
                       <input
                         value={editLastName}
-                        onChange={(e) => setEditLastName(e.target.value)}
+                        onChange={(e) => canEditProfile && setEditLastName(e.target.value)}
                         placeholder={t.lastNamePlaceholder}
+                        readOnly={!canEditProfile}
                         style={{
                           width: "100%",
                           maxWidth: "100%",
@@ -1265,6 +1274,7 @@ const relTitle =
                           borderRadius: 12,
                           border: "1px solid #d1d5db",
                           padding: "10px 12px",
+                          background: canEditProfile ? "white" : "#f8fafc",
                         }}
                       />
                     </div>
@@ -1277,7 +1287,8 @@ const relTitle =
                     </label>
                     <select
                       value={editGender}
-                      onChange={(e) => setEditGender(e.target.value)}
+                      onChange={(e) => canEditProfile && setEditGender(e.target.value)}
+                      disabled={!canEditProfile}
                       style={{
                         width: "100%",
                         maxWidth: "100%",
@@ -1285,8 +1296,8 @@ const relTitle =
                         borderRadius: 12,
                         border: "1px solid #d1d5db",
                         padding: "10px 12px",
-                        background: "#111827",
-                        color: "#ffffff",
+                        background: canEditProfile ? "#111827" : "#f8fafc",
+                        color: canEditProfile ? "#ffffff" : "#64748b",
                       }}
                     >
                       <option value="" style={{ background: "#111827", color: "#ffffff" }}>{t.preferNotToSay}</option>
@@ -1305,7 +1316,8 @@ const relTitle =
                       <input
                         type="date"
                         value={editBirthDate}
-                        onChange={(e) => setEditBirthDate(e.target.value)}
+                        onChange={(e) => canEditProfile && setEditBirthDate(e.target.value)}
+                        readOnly={!canEditProfile}
                         style={{
                           width: "100%",
                           maxWidth: "100%",
@@ -1313,13 +1325,15 @@ const relTitle =
                           borderRadius: 12,
                           border: "1px solid #d1d5db",
                           padding: "10px 12px",
+                          background: canEditProfile ? "white" : "#f8fafc",
                         }}
                       />
                       <span style={{ color: "#64748b", fontWeight: 700, textAlign: "center" }}>—</span>
                       <input
                         type="date"
                         value={editDeathDate}
-                        onChange={(e) => setEditDeathDate(e.target.value)}
+                        onChange={(e) => canEditProfile && setEditDeathDate(e.target.value)}
+                        readOnly={!canEditProfile}
                         style={{
                           width: "100%",
                           maxWidth: "100%",
@@ -1327,6 +1341,7 @@ const relTitle =
                           borderRadius: 12,
                           border: "1px solid #d1d5db",
                           padding: "10px 12px",
+                          background: canEditProfile ? "white" : "#f8fafc",
                         }}
                       />
                     </div>
@@ -1342,8 +1357,9 @@ const relTitle =
                     </label>
                     <input
                       value={editGrewUpLocation}
-                      onChange={(e) => setEditGrewUpLocation(e.target.value)}
+                      onChange={(e) => canEditProfile && setEditGrewUpLocation(e.target.value)}
                       placeholder={t.grewUpPlaceholder}
+                      readOnly={!canEditProfile}
                       style={{
                         width: "100%",
                         maxWidth: "100%",
@@ -1351,6 +1367,7 @@ const relTitle =
                         borderRadius: 12,
                         border: "1px solid #d1d5db",
                         padding: "10px 12px",
+                        background: canEditProfile ? "white" : "#f8fafc",
                       }}
                     />
                   </div>
@@ -1362,8 +1379,9 @@ const relTitle =
                     </label>
                     <input
                       value={editOccupation}
-                      onChange={(e) => setEditOccupation(e.target.value)}
+                      onChange={(e) => canEditProfile && setEditOccupation(e.target.value)}
                       placeholder={t.occupationPlaceholder}
+                      readOnly={!canEditProfile}
                       style={{
                         width: "100%",
                         maxWidth: "100%",
@@ -1371,6 +1389,7 @@ const relTitle =
                         borderRadius: 12,
                         border: "1px solid #d1d5db",
                         padding: "10px 12px",
+                        background: canEditProfile ? "white" : "#f8fafc",
                       }}
                     />
                   </div>
@@ -1382,8 +1401,9 @@ const relTitle =
                     </label>
                     <input
                       value={editInterests}
-                      onChange={(e) => setEditInterests(e.target.value)}
+                      onChange={(e) => canEditProfile && setEditInterests(e.target.value)}
                       placeholder={t.interestsPlaceholder}
+                      readOnly={!canEditProfile}
                       style={{
                         width: "100%",
                         maxWidth: "100%",
@@ -1391,6 +1411,7 @@ const relTitle =
                         borderRadius: 12,
                         border: "1px solid #d1d5db",
                         padding: "10px 12px",
+                        background: canEditProfile ? "white" : "#f8fafc",
                       }}
                     />
                   </div>
@@ -1402,9 +1423,10 @@ const relTitle =
                     </label>
                     <textarea
                       value={editStory}
-                      onChange={(e) => setEditStory(e.target.value)}
+                      onChange={(e) => canEditProfile && setEditStory(e.target.value)}
                       placeholder={t.storyPlaceholder}
                       rows={4}
+                      readOnly={!canEditProfile}
                       style={{
                         width: "100%",
                         maxWidth: "100%",
@@ -1414,6 +1436,7 @@ const relTitle =
                         padding: "10px 12px",
                         resize: "vertical",
                         fontFamily: "inherit",
+                        background: canEditProfile ? "white" : "#f8fafc",
                       }}
                     />
                   </div>
@@ -1425,9 +1448,10 @@ const relTitle =
                     </label>
                     <textarea
                       value={editProudOf}
-                      onChange={(e) => setEditProudOf(e.target.value)}
+                      onChange={(e) => canEditProfile && setEditProudOf(e.target.value)}
                       placeholder={t.proudOfPlaceholder}
                       rows={3}
+                      readOnly={!canEditProfile}
                       style={{
                         width: "100%",
                         maxWidth: "100%",
@@ -1437,11 +1461,13 @@ const relTitle =
                         padding: "10px 12px",
                         resize: "vertical",
                         fontFamily: "inherit",
+                        background: canEditProfile ? "white" : "#f8fafc",
                       }}
                     />
                   </div>
 
-                  {/* Actions */}
+                  {/* Actions - only show edit buttons if user can edit */}
+                  {canEditProfile ? (
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button
                       type="button"
@@ -1494,6 +1520,13 @@ const relTitle =
                       </button>
                     )}
                   </div>
+                  ) : (
+                    <div style={{ padding: "12px 16px", background: "#f1f5f9", borderRadius: 8, fontSize: 14, color: "#64748b" }}>
+                      {lang === "vi" 
+                        ? "Chỉ chủ sở hữu hồ sơ mới có thể chỉnh sửa thông tin này."
+                        : "Only the profile owner can edit this information."}
+                    </div>
+                  )}
                 </div>
 
                 {!selectedClaimed ? (
