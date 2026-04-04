@@ -59,13 +59,31 @@ export async function getTwoPeopleForRelationship(aId: string, bId: string): Pro
   return { a, b };
 }
 
-export function assertCanEditRelationship(
+export async function assertCanEditRelationship(
   me: Me,
-  a: { createdById: string },
-  b: { createdById: string }
+  a: { createdById: string; familyGraphId: string | null },
+  b: { createdById: string; familyGraphId: string | null }
 ) {
-  const canEdit = me.isAdmin || (a.createdById === me.id && b.createdById === me.id);
-
+  // Admin can always edit
+  if (me.isAdmin) return;
+  
+  // Check if user is a member of the family graph containing these people
+  if (a.familyGraphId && a.familyGraphId === b.familyGraphId) {
+    const membershipRows = await sql`
+      SELECT id FROM "Membership" 
+      WHERE "userId" = ${me.id} AND "familyGraphId" = ${a.familyGraphId}
+      LIMIT 1
+    `;
+    
+    if (membershipRows.length > 0) {
+      // User is a member of this family graph - they can edit relationships
+      return;
+    }
+  }
+  
+  // Fallback: original creator-based check
+  const canEdit = a.createdById === me.id && b.createdById === me.id;
+  
   if (!canEdit) {
     throw new RelationshipError("FORBIDDEN", 403);
   }

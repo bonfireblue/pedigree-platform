@@ -4,20 +4,24 @@ import { sql } from "@/lib/neon-db";
 
 export type Me = {
   id: string;
-  email: string;
+  email: string | null;
+  phone: string | null;
   isAdmin: boolean;
 };
 
 export async function requireMe(): Promise<Me | null> {
   const session = await getServerSession(authOptions);
-  const email = session?.user?.email;
-  if (!email) return null;
+  
+  // Get user ID from session - this is set in the JWT callback to support phone-only users
+  const userId = (session?.user as { id?: string })?.id;
+  if (!userId) return null;
 
-  const users = await sql`SELECT id, email, role FROM "User" WHERE email = ${email} LIMIT 1`;
+  // Look up user by ID (not email) to support phone-only users
+  const users = await sql`SELECT id, email, phone, role FROM "User" WHERE id = ${userId} LIMIT 1`;
   if (users.length === 0) return null;
 
-  const user = users[0] as { id: string; email: string; role: string };
+  const user = users[0] as { id: string; email: string | null; phone: string | null; role: string };
   const isAdmin = user.role === "ADMIN";
 
-  return { id: user.id, email: user.email, isAdmin };
+  return { id: user.id, email: user.email, phone: user.phone, isAdmin };
 }

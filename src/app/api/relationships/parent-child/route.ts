@@ -49,7 +49,7 @@ export async function POST(req: Request) {
 
     const { a: parent, b: child } = await getTwoPeopleForRelationship(parentId, childId);
 
-    assertCanEditRelationship(me, parent, child);
+    await assertCanEditRelationship(me, parent, child);
     assertSameFamilyGraph(parent, child);
 
     await assertNoDuplicateParentChild(parentId, childId);
@@ -132,7 +132,7 @@ export async function DELETE(req: Request) {
     assertNonEmptyIds([parentId, childId]);
 
     const { a: parent, b: child } = await getTwoPeopleForRelationship(parentId, childId);
-    assertCanEditRelationship(me, parent, child);
+    await assertCanEditRelationship(me, parent, child);
     assertSameFamilyGraph(parent, child);
 
     const relationship = await getExactParentChildOrThrow(parentId, childId);
