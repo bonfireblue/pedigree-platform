@@ -35,10 +35,16 @@ async function computeCanInvite(params: { meId: string; familyGraphId: string; r
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  
+  // Get user ID from session - this is set in the JWT callback
+  const userId = (session?.user as { id?: string })?.id;
+  if (!userId) {
+    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  }
 
+  // Look up user by ID (not email) to support phone-only users
   const meRows = await sql`
-    SELECT id, email FROM "User" WHERE email = ${session.user.email}
+    SELECT id, email, phone FROM "User" WHERE id = ${userId}
   `;
   if (meRows.length === 0) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
@@ -70,7 +76,7 @@ export async function GET() {
   const claimedPersonId = claimedPersonRows.length > 0 ? claimedPersonRows[0].id : null;
 
   return NextResponse.json({
-    user: { id: me.id, email: me.email },
+    user: { id: me.id, email: me.email, phone: me.phone },
     membership,
     canInvite,
     claimedPersonId,

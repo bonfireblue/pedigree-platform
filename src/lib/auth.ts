@@ -61,11 +61,11 @@ export const authOptions: AuthOptions = {
         const existingUser = await findUserByEmail(email);
         
         if (!existingUser) {
-          // Create user for OAuth
+          // Create user for OAuth - passwordHash is empty for OAuth users
           const userId = crypto.randomUUID();
           await sql`
-            INSERT INTO "User" (id, email, "emailVerified", "createdAt", "updatedAt")
-            VALUES (${userId}, ${email}, NOW(), NOW(), NOW())
+            INSERT INTO "User" (id, email, "passwordHash", role, "createdAt")
+            VALUES (${userId}, ${email}, '', 'USER', NOW())
           `;
         }
         return true;

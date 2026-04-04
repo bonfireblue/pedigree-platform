@@ -13,12 +13,14 @@ import {
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
+    // Get user ID from session - set in JWT callback to support phone-only users
+    const userId = (session?.user as { id?: string })?.id;
+    if (!userId) {
       return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
     }
 
     const me = await prisma.user.findUnique({
-      where: { email: session.user.email.toLowerCase() },
+      where: { id: userId },
       select: { id: true, email: true },
     });
 
